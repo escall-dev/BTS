@@ -7,8 +7,7 @@
 *.sql
 
 # Runtime storage and generated outputs
-/storage/generated_reports/*
-!/storage/generated_reports/.gitkeep
+/storage/generated_reports/
 /storage/cache/*
 !/storage/cache/.gitkeep
 
