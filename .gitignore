@@ -1,0 +1,37 @@
+# Composer dependencies
+/vendor/
+
+# Database files and schemas (private - do not publicize)
+/database/*
+!/database/.gitkeep
+*.sql
+
+# Runtime storage and generated outputs
+/storage/generated_reports/*
+!/storage/generated_reports/.gitkeep
+/storage/cache/*
+!/storage/cache/.gitkeep
+
+# LibreOffice temporary runtime profiles
+/storage/libreoffice_profile*
+/storage/lo_*
+
+# Temporary public assets
+/public/assets/temp/*
+!/public/assets/temp/.gitkeep
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE and Editor configuration
+.codex/
+.agents/
+.vscode/
+.idea/
+
+# OS metadata
+Thumbs.db
+Desktop.ini
+.DS_Store
