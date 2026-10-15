@@ -8,33 +8,36 @@ ob_start();
     <div class="auth-orbit auth-orbit-top" aria-hidden="true"><span></span><span></span><span></span></div>
     <div class="auth-orbit auth-orbit-bottom" aria-hidden="true"><span></span><span></span><span></span></div>
     <section class="auth-panel" aria-labelledby="login-title">
-    <header class="auth-header">
-        <div class="auth-logo">
-            <?php if ($logoIsValid): ?>
-                <img src="/BTS/<?= htmlspecialchars($logoPath) ?>" alt="<?= htmlspecialchars($sidebarTitle) ?> logo">
-            <?php else: ?>
-                <span class="brand-mark" aria-hidden="true"><span></span><span></span></span>
+        <header class="auth-header">
+            <div class="auth-logo">
+                <?php if ($logoIsValid): ?>
+                    <img src="/BTS/<?= htmlspecialchars($logoPath) ?>" alt="<?= htmlspecialchars($sidebarTitle) ?> logo">
+                <?php else: ?>
+                    <span class="brand-mark" aria-hidden="true"><span></span><span></span></span>
+                <?php endif; ?>
+            </div>
+            <p class="auth-eyebrow"><?= htmlspecialchars($sidebarTitle) ?></p>
+            <h1 id="login-title">Login</h1>
+            <p class="auth-welcome">Hello there! Sign in to continue.</p>
+        </header>
+        <form method="post" action="/BTS/login" class="form-stack auth-form">
+            <?php if (!empty($error)): ?>
+                <p class="alert auth-error" role="alert"><?= htmlspecialchars($error) ?></p>
             <?php endif; ?>
-        </div>
-        <p class="auth-eyebrow"><?= htmlspecialchars($sidebarTitle) ?></p>
-        <h1 id="login-title">Login</h1>
-        <p class="auth-welcome">Hello there! Sign in to continue.</p>
-    </header>
-    <form method="post" action="/BTS/login" class="form-stack auth-form">
-        <?php if (!empty($error)): ?>
-            <p class="alert auth-error" role="alert"><?= htmlspecialchars($error) ?></p>
+            <label>
+                Username
+                <input type="text" name="username" autocomplete="username" required>
+            </label>
+            <label>
+                Password
+                <input type="password" name="password" autocomplete="current-password" required>
+            </label>
+            <button type="submit" class="auth-submit">Sign in</button>
+        </form>
+        <?php if (trim((string) ($appVersion ?? '')) !== ''): ?>
+            <p class="auth-version"><?= htmlspecialchars($appVersion, ENT_QUOTES, 'UTF-8') ?></p>
         <?php endif; ?>
-        <label>
-            Username
-            <input type="text" name="username" autocomplete="username" required>
-        </label>
-        <label>
-            Password
-            <input type="password" name="password" autocomplete="current-password" required>
-        </label>
-        <button type="submit" class="auth-submit">Sign in</button>
-    </form>
-</section>
+    </section>
 </div>
 <?php
 $content = ob_get_clean();

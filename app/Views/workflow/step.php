@@ -44,12 +44,15 @@ $stepKey = (string) ($step['step_key'] ?? '');
 $reportType = (string) ($step['report_type'] ?? 'Report Step');
 $processCode = (string) ($process['process_code'] ?? '');
 $processId = (int) ($process['id'] ?? 0);
+$isCompletedWorkflow = ($process['status'] ?? '') === 'completed';
+$requestedCompletedEdit = !empty($editCompleted);
+$editCompleted = $isCompletedWorkflow && $requestedCompletedEdit;
 $isCurrent = $currentStep === $stepKey;
 $isSaved = (int) ($step['is_saved'] ?? 0) === 1;
 $isPrintable = (int) ($step['is_printable'] ?? 0) === 1;
 $stepDataIsValid = $stepDataIsValid ?? $isSaved;
 $canPrintReport = $isPrintable && $stepDataIsValid;
-$canAdvance = $isCurrent && $isSaved && $stepDataIsValid;
+$canAdvance = !$isCompletedWorkflow && $isCurrent && $isSaved && $stepDataIsValid;
 $isFinal = $stepKey === 'inspection-acceptance-report';
 $isPurchaseRequest = $stepKey === 'purchase-request';
 $isBacReport = $stepKey === 'bac-reports';
@@ -61,13 +64,14 @@ $isObligationReport = $stepKey === 'obligation-report';
 $isRequisitionIssueSlip = $stepKey === 'requisition-issue-slip';
 $isInspectionAcceptanceReport = $stepKey === 'inspection-acceptance-report';
 $hasFields = $fields !== [];
-$canEdit = $isCurrent || $isSaved;
+$canEdit = (!$isCompletedWorkflow || $editCompleted) && ($isCurrent || $isSaved);
 $showSavedPurchaseDetails = $isPurchaseRequest && $isSaved && $errors === [];
 $pageHeaderClass = 'page-header' . ($isPurchaseRequest ? ' pr-page-header' : '');
 $reportPanelClass = 'report-panel' . ($isPurchaseRequest ? ' purchase-request-panel' : '') . ($isPurchaseOrder ? ' purchase-order-panel' : '') . ($isDisbursementVoucher ? ' disbursement-voucher-panel' : '') . ($isObligationReport ? ' obligation-report-panel' : '') . ($isRequisitionIssueSlip ? ' requisition-issue-slip-panel' : '') . ($isInspectionAcceptanceReport ? ' inspection-acceptance-panel' : '');
 $workflowActionsClass = 'workflow-actions' . ($isPurchaseRequest ? ' pr-workflow-actions' : '');
 $printFormAttributes = ' target="_blank" rel="noopener"';
-$clearUrl = '/BTS/reports/process/' . $processId . '/step/' . $stepKey . '/clear';
+$editQuery = $editCompleted ? '?edit=1' : '';
+$clearUrl = '/BTS/reports/process/' . $processId . '/step/' . $stepKey . '/clear' . $editQuery;
 $fieldType = static function (string $key): string {
     $lowerKey = strtolower($key);
     if (str_contains($lowerKey, 'date') || str_ends_with($lowerKey, 'date')) {
@@ -148,7 +152,11 @@ ob_start();
 <?php if (!empty($errors['print'])): ?>
     <div class="toast error" data-toast><?= htmlspecialchars($errors['print']) ?></div>
 <?php endif; ?>
-<?php if (!$isCurrent && $isSaved): ?>
+<?php if ($isCompletedWorkflow && !$editCompleted): ?>
+    <p class="notice completed-review-notice">This workflow is complete and is open in read-only review mode. <a href="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>?edit=1">Edit this completed report</a></p>
+<?php elseif ($isCompletedWorkflow && $editCompleted): ?>
+    <p class="notice completed-review-notice is-editing">You are editing a completed workflow. Changes will update the saved report. <a href="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>">Return to read-only review</a></p>
+<?php elseif (!$isCurrent && $isSaved): ?>
     <p class="notice">You are reviewing a completed report. You may update and save it again, then return to the current step from the list.</p>
 <?php endif; ?>
 
@@ -236,7 +244,7 @@ ob_start();
         <?php endif; ?>
 
         <?php if ($isPurchaseRequest): ?>
-            <form class="form-stack purchase-request-form" method="post" action="/BTS/reports/process/<?= $processId ?>/step/purchase-request/save" data-pr-form data-clear-url="<?= htmlspecialchars($clearUrl) ?>">
+            <form class="form-stack purchase-request-form" method="post" action="/BTS/reports/process/<?= $processId ?>/step/purchase-request/save<?= $editQuery ?>" data-pr-form data-clear-url="<?= htmlspecialchars($clearUrl) ?>">
                 <section class="form-section pr-form-section pr-details-section">
                     <div class="section-heading-row pr-section-heading procurement-section-header">
                         <h2>Purchase Request Details</h2>
@@ -409,7 +417,7 @@ ob_start();
                 }
             }
             ?>
-            <form class="form-stack abstract-canvass-form" method="post" action="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>/save" data-clear-url="<?= htmlspecialchars($clearUrl) ?>" data-abstract-form>
+            <form class="form-stack abstract-canvass-form" method="post" action="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>/save<?= $editQuery ?>" data-clear-url="<?= htmlspecialchars($clearUrl) ?>" data-abstract-form>
                 <div class="section-heading-row report-form-heading procurement-section-header">
                     <h2>Report Fields</h2>
                     <?php if ($isSaved && $errors === []): ?>
@@ -503,7 +511,7 @@ ob_start();
                 </div>
             </form>
         <?php elseif ($isRequestForQuotation): ?>
-            <form class="form-stack request-quotation-form" method="post" action="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>/save" data-clear-url="<?= htmlspecialchars($clearUrl) ?>" data-abstract-form>
+            <form class="form-stack request-quotation-form" method="post" action="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>/save<?= $editQuery ?>" data-clear-url="<?= htmlspecialchars($clearUrl) ?>" data-abstract-form>
                 <div class="section-heading-row report-form-heading procurement-section-header">
                     <h2>Report Fields</h2>
                     <?php if ($isSaved && $errors === []): ?>
@@ -605,7 +613,7 @@ ob_start();
                 </div>
             </form>
         <?php elseif ($isPurchaseOrder): ?>
-            <form class="form-stack purchase-order-form" data-po-form method="post" action="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>/save" data-clear-url="<?= htmlspecialchars($clearUrl) ?>">
+            <form class="form-stack purchase-order-form" data-po-form method="post" action="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>/save<?= $editQuery ?>" data-clear-url="<?= htmlspecialchars($clearUrl) ?>">
                 <div class="section-heading-row report-form-heading procurement-section-header">
                     <h2>Purchase Order Details</h2>
                     <?php if ($isSaved && $errors === []): ?>
@@ -792,7 +800,7 @@ ob_start();
                 <?php
             };
             ?>
-            <form class="form-stack disbursement-voucher-form" data-dv-form method="post" action="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>/save" data-clear-url="<?= htmlspecialchars($clearUrl) ?>">
+            <form class="form-stack disbursement-voucher-form" data-dv-form method="post" action="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>/save<?= $editQuery ?>" data-clear-url="<?= htmlspecialchars($clearUrl) ?>">
                 <div class="section-heading-row report-form-heading procurement-section-header">
                     <h2>Disbursement Voucher Details</h2>
                     <?php if ($isSaved && $errors === []): ?>
@@ -934,7 +942,7 @@ ob_start();
                 </div>
             </form>
         <?php elseif ($isObligationReport): ?>
-            <form class="form-stack obligation-report-form" method="post" action="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>/save" data-clear-url="<?= htmlspecialchars($clearUrl) ?>">
+            <form class="form-stack obligation-report-form" method="post" action="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>/save<?= $editQuery ?>" data-clear-url="<?= htmlspecialchars($clearUrl) ?>">
                 <div class="section-heading-row report-form-heading procurement-section-header">
                     <h2>Obligation Report Details</h2>
                     <?php if ($isSaved && $errors === []): ?>
@@ -1039,7 +1047,7 @@ ob_start();
                 </div>
             </form>
         <?php elseif ($isRequisitionIssueSlip): ?>
-            <form class="form-stack requisition-issue-slip-form" method="post" action="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>/save" data-clear-url="<?= htmlspecialchars($clearUrl) ?>">
+            <form class="form-stack requisition-issue-slip-form" method="post" action="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>/save<?= $editQuery ?>" data-clear-url="<?= htmlspecialchars($clearUrl) ?>">
                 <div class="section-heading-row report-form-heading procurement-section-header">
                     <h2>Requisition and Issue Slip Details</h2>
                     <?php if ($isSaved && $errors === []): ?>
@@ -1127,7 +1135,7 @@ ob_start();
                 </div>
             </form>
         <?php elseif ($isInspectionAcceptanceReport): ?>
-            <form class="form-stack inspection-acceptance-form" method="post" action="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>/save" data-clear-url="<?= htmlspecialchars($clearUrl) ?>">
+            <form class="form-stack inspection-acceptance-form" method="post" action="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>/save<?= $editQuery ?>" data-clear-url="<?= htmlspecialchars($clearUrl) ?>">
                 <div class="section-heading-row report-form-heading procurement-section-header">
                     <h2>Inspection and Acceptance Details</h2>
                     <?php if ($isSaved && $errors === []): ?>
@@ -1206,7 +1214,7 @@ ob_start();
                 </div>
             </form>
         <?php elseif ($hasFields): ?>
-            <form class="form-stack" method="post" action="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>/save" data-clear-url="<?= htmlspecialchars($clearUrl) ?>">
+            <form class="form-stack" method="post" action="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>/save<?= $editQuery ?>" data-clear-url="<?= htmlspecialchars($clearUrl) ?>">
                 <div class="section-heading-row report-form-heading procurement-section-header">
                     <h2>Report Fields</h2>
                     <?php if ($isSaved && $errors === []): ?>
@@ -1343,7 +1351,9 @@ ob_start();
                 <button type="submit" class="secondary" <?= $canPrintReport ? '' : 'disabled' ?>><?= $isPurchaseRequest ? 'Print Purchase Request' : 'Print' ?></button>
             </form>
 
-            <?php if ($isFinal): ?>
+            <?php if ($isCompletedWorkflow): ?>
+                <a class="button secondary" href="/BTS/archive">Back to Archived Reports</a>
+            <?php elseif ($isFinal): ?>
                 <form method="post" action="/BTS/reports/process/<?= $processId ?>/finish">
                     <button type="submit" <?= $canAdvance ? '' : 'disabled' ?>>Finish</button>
                 </form>

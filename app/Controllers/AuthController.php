@@ -41,8 +41,10 @@ class AuthController extends Controller
 
     private function loginPageData(string $error = ''): array
     {
+        $appConfig = require __DIR__ . '/../../config/app.php';
         $data = [
             'title' => 'Login',
+            'appVersion' => (string) ($appConfig['version'] ?? ''),
             'error' => $error,
             'uiSettings' => [],
             'uiTheme' => [],

@@ -1413,7 +1413,7 @@ class Workflow extends Model
     {
         $process = $this->getProcess($processId);
 
-        if (!$process) {
+        if (!$process || ($process['status'] ?? '') === 'completed') {
             return null;
         }
 
@@ -1441,7 +1441,7 @@ class Workflow extends Model
     {
         $process = $this->getProcess($processId);
 
-        if (!$process) {
+        if (!$process || ($process['status'] ?? '') === 'completed') {
             return;
         }
 
@@ -1457,37 +1457,25 @@ class Workflow extends Model
         $this->upsertArchiveCheckpoint($processId, $process['process_code'], $process['start_type'], $reportCount, 'completed');
     }
 
-    public function archives(array $filters = []): array
+    public function archiveCount(array $filters = []): int
     {
-        $conditions = [
-            "(p.status IS NULL OR p.status <> 'deleted')",
-            "(a.status IS NULL OR a.status <> 'deleted')",
-        ];
-        $parameters = [];
+        [$conditions, $parameters] = $this->archiveConditions($filters);
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*)
+             FROM report_processes p
+             LEFT JOIN archives a ON a.process_id = p.id
+             WHERE " . implode("\n               AND ", $conditions)
+        );
+        $stmt->execute($parameters);
 
-        $status = (string) ($filters['status'] ?? '');
-        if ($status !== '') {
-            $conditions[] = 'COALESCE(a.status, p.status, \'in_progress\') = ?';
-            $parameters[] = $status;
-        }
+        return (int) $stmt->fetchColumn();
+    }
 
-        $dateFrom = (string) ($filters['date_from'] ?? '');
-        if ($dateFrom !== '') {
-            $conditions[] = 'p.created_at >= ?';
-            $parameters[] = $dateFrom . ' 00:00:00';
-        }
-
-        $dateTo = (string) ($filters['date_to'] ?? '');
-        if ($dateTo !== '') {
-            $conditions[] = 'p.created_at < DATE_ADD(?, INTERVAL 1 DAY)';
-            $parameters[] = $dateTo . ' 00:00:00';
-        }
-
-        $processNumber = trim((string) ($filters['process_number'] ?? ''));
-        if ($processNumber !== '') {
-            $conditions[] = 'LOWER(p.process_code) LIKE ?';
-            $parameters[] = '%' . strtolower($processNumber) . '%';
-        }
+    public function archives(array $filters = [], int $limit = 10, int $offset = 0): array
+    {
+        [$conditions, $parameters] = $this->archiveConditions($filters);
+        $limit = max(1, $limit);
+        $offset = max(0, $offset);
 
         $stmt = $this->db->prepare(
             "SELECT
@@ -1519,7 +1507,8 @@ class Workflow extends Model
              FROM report_processes p
              LEFT JOIN archives a ON a.process_id = p.id
              WHERE " . implode("\n               AND ", $conditions) . "
-             ORDER BY COALESCE(a.archived_at, p.updated_at, p.completed_at, p.created_at) DESC"
+             ORDER BY COALESCE(a.archived_at, p.updated_at, p.completed_at, p.created_at) DESC
+             LIMIT {$limit} OFFSET {$offset}"
         );
         $stmt->execute($parameters);
         $archives = $stmt->fetchAll();
@@ -1530,6 +1519,9 @@ class Workflow extends Model
             $archive['report_count'] = (int) ($archive['report_count'] ?: count($steps));
             $archive['saved_count'] = count(array_filter($steps, static fn (array $step): bool => (int) ($step['is_saved'] ?? 0) === 1));
             $archive['status'] = (string) ($archive['archive_status'] ?: $archive['process_status'] ?: 'in_progress');
+            if ($archive['status'] === 'in_progress' && $archive['saved_count'] === 0) {
+                $archive['status'] = 'draft';
+            }
             $projectTitle = trim((string) ($archive['bac_project_title'] ?? ''));
             $purchasePurpose = trim((string) ($archive['purchase_request_purpose'] ?? ''));
             $archive['project_title'] = $projectTitle !== '' ? $projectTitle : ($purchasePurpose !== '' ? $purchasePurpose : 'Not entered yet');
@@ -1537,6 +1529,47 @@ class Workflow extends Model
         unset($archive);
 
         return $archives;
+    }
+
+    private function archiveConditions(array $filters): array
+    {
+        $conditions = [
+            "(p.status IS NULL OR p.status <> 'deleted')",
+            "(a.status IS NULL OR a.status <> 'deleted')",
+        ];
+        $parameters = [];
+        $status = (string) ($filters['status'] ?? '');
+        $savedStepExists = "EXISTS (SELECT 1 FROM report_steps saved_step WHERE saved_step.process_id = p.id AND saved_step.is_saved = 1)";
+
+        if ($status === 'completed') {
+            $conditions[] = "COALESCE(a.status, p.status, 'in_progress') = 'completed'";
+        } elseif ($status === 'draft') {
+            $conditions[] = "COALESCE(a.status, p.status, 'in_progress') = 'in_progress'";
+            $conditions[] = "NOT {$savedStepExists}";
+        } elseif ($status === 'in_progress') {
+            $conditions[] = "COALESCE(a.status, p.status, 'in_progress') = 'in_progress'";
+            $conditions[] = $savedStepExists;
+        }
+
+        $dateFrom = (string) ($filters['date_from'] ?? '');
+        if ($dateFrom !== '') {
+            $conditions[] = 'p.created_at >= ?';
+            $parameters[] = $dateFrom . ' 00:00:00';
+        }
+
+        $dateTo = (string) ($filters['date_to'] ?? '');
+        if ($dateTo !== '') {
+            $conditions[] = 'p.created_at < DATE_ADD(?, INTERVAL 1 DAY)';
+            $parameters[] = $dateTo . ' 00:00:00';
+        }
+
+        $processNumber = trim((string) ($filters['process_number'] ?? ''));
+        if ($processNumber !== '') {
+            $conditions[] = 'LOWER(p.process_code) LIKE ?';
+            $parameters[] = '%' . strtolower($processNumber) . '%';
+        }
+
+        return [$conditions, $parameters];
     }
 
     public function completedTransactions(string $startDate, string $endDate): array

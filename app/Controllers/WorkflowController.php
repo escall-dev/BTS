@@ -65,6 +65,10 @@ class WorkflowController extends Controller
             return;
         }
 
+        if (($process['status'] ?? '') === 'completed' && ($_GET['edit'] ?? '') !== '1') {
+            $this->redirect('/BTS/reports/process/' . (int) $id . '/step/' . $step);
+        }
+
         if (!$this->canOpenStep($process, $reportStep)) {
             $this->redirect('/BTS/reports/process/' . (int) $id . '/step/' . $process['current_step']);
         }
@@ -161,7 +165,7 @@ class WorkflowController extends Controller
         $process = $workflow->getProcess((int) $id);
         $reportStep = $workflow->getStep((int) $id, $step);
 
-        if (!$process || !$reportStep || !$this->canOpenStep($process, $reportStep)) {
+        if (!$process || !$reportStep || (($process['status'] ?? '') === 'completed' && ($_GET['edit'] ?? '') !== '1') || !$this->canOpenStep($process, $reportStep)) {
             $target = $process['current_step'] ?? $step;
             $this->redirect('/BTS/reports/process/' . (int) $id . '/step/' . $target);
         }
@@ -176,7 +180,8 @@ class WorkflowController extends Controller
             return;
         }
 
-        $this->redirect('/BTS/reports/process/' . (int) $id . '/step/' . $step . '?cleared=1');
+        $editQuery = ($process['status'] ?? '') === 'completed' && ($_GET['edit'] ?? '') === '1' ? '&edit=1' : '';
+        $this->redirect('/BTS/reports/process/' . (int) $id . '/step/' . $step . '?cleared=1' . $editQuery);
     }
     public function printStep(string $id, string $step): void
     {
@@ -214,7 +219,7 @@ class WorkflowController extends Controller
         $workflow = new Workflow();
         $process = $workflow->getProcess((int) $id);
 
-        if (!$process) {
+        if (!$process || ($process['status'] ?? '') === 'completed') {
             http_response_code(404);
             echo 'Workflow process not found';
             return;
@@ -242,7 +247,7 @@ class WorkflowController extends Controller
         $workflow = new Workflow();
         $process = $workflow->getProcess((int) $id);
 
-        if (!$process || $process['current_step'] !== 'inspection-acceptance-report') {
+        if (!$process || ($process['status'] ?? '') === 'completed' || $process['current_step'] !== 'inspection-acceptance-report') {
             $this->redirect('/BTS/reports');
         }
 
@@ -296,6 +301,7 @@ class WorkflowController extends Controller
     private function renderStep(Workflow $workflow, array $process, array $reportStep, array $overrides = []): void
     {
         $step = $reportStep['step_key'];
+        $editCompleted = ($process['status'] ?? '') === 'completed' && ($_GET['edit'] ?? '') === '1';
         $savedStepData = $workflow->getStepData((int) $reportStep['id']);
         $savedStepDataWithInternal = $workflow->getStepData((int) $reportStep['id'], true);
         $data = $overrides['data'] ?? $savedStepData;
@@ -359,6 +365,7 @@ class WorkflowController extends Controller
             'title' => Workflow::label($step),
             'active' => 'reports',
             'process' => $process,
+            'editCompleted' => $editCompleted,
             'step' => $reportStep,
             'steps' => $workflow->getSteps((int) $process['id']),
             'data' => $data,

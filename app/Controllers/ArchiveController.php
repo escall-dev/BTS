@@ -13,11 +13,21 @@ class ArchiveController extends Controller
     {
         $this->requireLogin();
         [$filters, $filterErrors] = $this->archiveFilters($_GET);
+        $workflow = new Workflow();
+        $totalArchives = $filterErrors === [] ? $workflow->archiveCount($filters) : 0;
+        $perPage = $filters['per_page'] === 'all' ? max(1, $totalArchives) : (int) $filters['per_page'];
+        $pageCount = max(1, (int) ceil($totalArchives / $perPage));
+        $page = min($filters['page'], $pageCount);
+        $filters['page'] = $page;
         $this->view('archive/index', [
             'title' => 'Archived Reports',
             'active' => 'archive',
-            'archives' => $filterErrors === [] ? (new Workflow())->archives($filters) : [],
+            'archives' => $filterErrors === [] ? $workflow->archives($filters, $perPage, ($page - 1) * $perPage) : [],
             'filters' => $filters,
+            'totalArchives' => $totalArchives,
+            'archivePerPage' => $perPage,
+            'archivePage' => $page,
+            'archivePageCount' => $pageCount,
             'filterErrors' => $filterErrors,
             'deleted' => ($_GET['deleted'] ?? '') === '1',
         ]);
@@ -101,10 +111,14 @@ class ArchiveController extends Controller
             'date_from' => trim((string) ($input['date_from'] ?? '')),
             'date_to' => trim((string) ($input['date_to'] ?? '')),
             'process_number' => trim((string) ($input['process_number'] ?? '')),
+            'page' => max(1, (int) ($input['page'] ?? 1)),
+            'per_page' => in_array((string) ($input['per_page'] ?? '10'), ['5', '10', '15', '20', 'all'], true)
+                ? (string) ($input['per_page'] ?? '10')
+                : '10',
         ];
         $errors = [];
 
-        if ($filters['status'] !== '' && !in_array($filters['status'], ['in_progress', 'completed'], true)) {
+        if ($filters['status'] !== '' && !in_array($filters['status'], ['draft', 'in_progress', 'completed'], true)) {
             $errors['status'] = 'Select a valid status.';
         }
         foreach (['date_from' => 'Created From', 'date_to' => 'Created To'] as $key => $label) {

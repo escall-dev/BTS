@@ -1,10 +1,24 @@
 <?php
 $archives = $archives ?? [];
 $filters = $filters ?? ['status' => '', 'date_from' => '', 'date_to' => '', 'process_number' => ''];
+$totalArchives = (int) ($totalArchives ?? count($archives));
+$archivePerPage = max(1, (int) ($archivePerPage ?? 10));
+$archivePage = max(1, (int) ($archivePage ?? 1));
+$archivePageCount = max(1, (int) ($archivePageCount ?? 1));
 $filterErrors = $filterErrors ?? [];
 $deleted = $deleted ?? false;
-$hasFilters = count(array_filter($filters, static fn ($value): bool => trim((string) $value) !== '')) > 0;
+$hasFilters = count(array_filter($filters, static fn ($key): bool => !in_array($key, ['page', 'per_page'], true) && trim((string) $filters[$key]) !== '', ARRAY_FILTER_USE_KEY)) > 0;
 $escape = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+$archivePageUrl = static function (int $page) use ($filters): string {
+    $query = [];
+    foreach (['status', 'date_from', 'date_to', 'process_number', 'per_page'] as $key) {
+        if (trim((string) ($filters[$key] ?? '')) !== '') {
+            $query[$key] = (string) $filters[$key];
+        }
+    }
+    $query['page'] = max(1, $page);
+    return '/BTS/archive?' . http_build_query($query);
+};
 ob_start();
 ?>
 <section class="page-header">
@@ -30,7 +44,7 @@ ob_start();
     <div class="archive-filter-heading">
         <div>
             <h2 id="archive-filter-heading">Filter reports</h2>
-            <p><?= count($archives) ?> <?= count($archives) === 1 ? 'process' : 'processes' ?> found</p>
+            <p><?= $totalArchives ?> <?= $totalArchives === 1 ? 'process' : 'processes' ?> found</p>
         </div>
         <?php if ($hasFilters): ?><a class="button secondary" href="/BTS/archive">Clear</a><?php endif; ?>
     </div>
@@ -39,6 +53,7 @@ ob_start();
             <span>Status</span>
             <select name="status" data-archive-filter-control>
                 <option value="">All statuses</option>
+                <option value="draft" <?= $filters['status'] === 'draft' ? 'selected' : '' ?>>Draft (not started)</option>
                 <option value="in_progress" <?= $filters['status'] === 'in_progress' ? 'selected' : '' ?>>In Progress</option>
                 <option value="completed" <?= $filters['status'] === 'completed' ? 'selected' : '' ?>>Completed</option>
             </select>
@@ -58,10 +73,19 @@ ob_start();
             <span>Process Number</span>
             <input type="search" name="process_number" value="<?= $escape($filters['process_number']) ?>" placeholder="Search BTS process number" autocomplete="off" data-archive-process-search>
         </label>
+        <label class="archive-page-size archive-filter-page-size">
+            <span>Reports per page</span>
+            <select name="per_page" data-archive-page-size aria-label="Reports per page">
+                <?php foreach (['5' => '5', '10' => '10', '15' => '15', '20' => '20', 'all' => 'All'] as $pageSizeValue => $pageSizeLabel): ?>
+                    <option value="<?= $escape($pageSizeValue) ?>" <?= (string) $filters['per_page'] === (string) $pageSizeValue ? 'selected' : '' ?>><?= $escape($pageSizeLabel) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </label>
         <noscript><button type="submit">Apply filters</button></noscript>
     </form>
 </section>
 
+<div class="archive-results" data-archive-results aria-live="polite" aria-busy="false">
 <section class="table-panel archive-panel" data-archive-panel>
     <?php if ($archives === []): ?>
         <p class="empty-state"><?= $hasFilters || $filterErrors !== [] ? 'No report processes match these filters.' : 'No saved report process has been archived yet.' ?></p>
@@ -94,18 +118,19 @@ ob_start();
                         $savedSteps = (int) ($archive['saved_count'] ?? 0);
                         $status = (string) ($archive['status'] ?? 'in_progress');
                         $isCompleted = $status === 'completed';
+                        $isDraft = $status === 'draft';
                         $updatedAt = (string) ($archive['archived_at'] ?? $archive['updated_at'] ?? $archive['completed_at'] ?? $archive['created_at'] ?? '');
                         ?>
                         <tr>
 
-                            <td>
+                            <td data-label="Process">
                                 <strong><?= $escape($archive['process_code'] ?? '') ?></strong>
                                 <small><?= $escape($archive['created_at'] ?? '') ?></small>
                             </td>
-                            <td class="archive-project-title"><?= $escape($archive['project_title'] ?? 'Not entered yet') ?></td>
-                            <td><?= $escape(ucwords(str_replace('-', ' ', (string) ($archive['start_type'] ?? '')))) ?></td>
-                            <td><?= $escape($currentStepLabel) ?></td>
-                            <td>
+                            <td class="archive-project-title" data-label="Project Title"><?= $escape($archive['project_title'] ?? 'Not entered yet') ?></td>
+                            <td data-label="Workflow"><?= $escape(ucwords(str_replace('-', ' ', (string) ($archive['start_type'] ?? '')))) ?></td>
+                            <td data-label="Current Step"><?= $escape($currentStepLabel) ?></td>
+                            <td data-label="Progress">
                                 <div class="archive-progress-text"><?= $savedSteps ?> / <?= $totalSteps ?> saved</div>
                                 <div class="archive-step-list" aria-label="Workflow step progress">
                                     <?php foreach ($steps as $workflowStep): ?>
@@ -123,9 +148,9 @@ ob_start();
                                     <?php endforeach; ?>
                                 </div>
                             </td>
-                            <td><span class="archive-status <?= $isCompleted ? 'is-complete' : 'is-progress' ?>"><?= $escape(ucwords(str_replace('_', ' ', $status))) ?></span></td>
-                            <td><?= $escape($updatedAt) ?></td>
-                            <td>
+                            <td data-label="Status"><span class="archive-status <?= $isCompleted ? 'is-complete' : ($isDraft ? 'is-draft' : 'is-progress') ?>"><?= $escape($isDraft ? 'Draft' : ucwords(str_replace('_', ' ', $status))) ?></span></td>
+                            <td data-label="Updated"><?= $escape($updatedAt) ?></td>
+                            <td data-label="Actions">
                                 <div class="archive-actions">
                                     <a class="button secondary" href="/BTS/reports/process/<?= $processId ?>/step/<?= $escape($currentStep) ?>"><?= $isCompleted ? 'Review' : 'Continue' ?></a>
                                     <form method="post" action="/BTS/archive/<?= $processId ?>/delete" data-confirm-delete="Delete this saved report process from Archived Reports?">
@@ -138,8 +163,22 @@ ob_start();
                 </tbody>
             </table>
         </div>
+        <?php if ($totalArchives > 0): ?>
+            <?php $firstArchive = (($archivePage - 1) * $archivePerPage) + 1; $lastArchive = min($firstArchive + count($archives) - 1, $totalArchives); ?>
+            <nav class="archive-pagination" aria-label="Archive pages">
+                <span>Showing <?= $firstArchive ?>–<?= $lastArchive ?> of <?= $totalArchives ?></span>
+                <div>
+                    <?php if ($archivePageCount > 1): ?>
+                        <?php if ($archivePage > 1): ?><a class="button secondary" href="<?= $escape($archivePageUrl($archivePage - 1)) ?>" rel="prev">Previous</a><?php endif; ?>
+                        <span>Page <?= $archivePage ?> of <?= $archivePageCount ?></span>
+                        <?php if ($archivePage < $archivePageCount): ?><a class="button secondary" href="<?= $escape($archivePageUrl($archivePage + 1)) ?>" rel="next">Next</a><?php endif; ?>
+                    <?php endif; ?>
+                </div>
+            </nav>
+        <?php endif; ?>
     <?php endif; ?>
 </section>
+</div>
 
 <?php
 $content = ob_get_clean();

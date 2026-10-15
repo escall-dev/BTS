@@ -387,6 +387,97 @@
         }
     }
 
+    function setupArchivePagination() {
+        const results = document.querySelector('[data-archive-results]');
+        if (!results) {
+            return;
+        }
+
+        let requestInProgress = false;
+        const loadPage = async (url, addHistoryEntry = true) => {
+            if (requestInProgress) {
+                return;
+            }
+
+            requestInProgress = true;
+            results.setAttribute('aria-busy', 'true');
+            try {
+                const response = await fetch(url, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                });
+                if (!response.ok) {
+                    throw new Error('Archive page request failed.');
+                }
+
+                const documentText = await response.text();
+                const nextDocument = new DOMParser().parseFromString(documentText, 'text/html');
+                const nextResults = nextDocument.querySelector('[data-archive-results]');
+                if (!nextResults) {
+                    throw new Error('Archive page content was not found.');
+                }
+
+                results.innerHTML = nextResults.innerHTML;
+                results.classList.remove('is-page-changing');
+                void results.offsetWidth;
+                results.classList.add('is-page-changing');
+                window.setTimeout(() => results.classList.remove('is-page-changing'), 220);
+                results.setAttribute('aria-busy', 'false');
+                if (addHistoryEntry) {
+                    window.history.pushState({ archivePage: true }, '', url);
+                }
+                const pageSizeControl = document.querySelector('[data-archive-page-size]');
+                if (pageSizeControl) {
+                    pageSizeControl.value = new URL(url, window.location.href).searchParams.get('per_page') || '10';
+                }
+                if (nextDocument.title) {
+                    document.title = nextDocument.title;
+                }
+
+                const page = document.querySelector('.content-shell > .page');
+                if (page) {
+                    page.scrollTo({ top: Math.max(0, results.offsetTop - 20), behavior: 'smooth' });
+                }
+            } catch (error) {
+                window.location.assign(url);
+            } finally {
+                requestInProgress = false;
+                results.setAttribute('aria-busy', 'false');
+            }
+        };
+
+        document.addEventListener('click', (event) => {
+            const link = event.target.closest('[data-archive-results] .archive-pagination a[href]');
+            if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+                return;
+            }
+
+            const url = new URL(link.href, window.location.href);
+            if (url.origin !== window.location.origin || url.pathname !== window.location.pathname) {
+                return;
+            }
+
+            event.preventDefault();
+            loadPage(url.href);
+        });
+
+        document.addEventListener('change', (event) => {
+            const pageSize = event.target.closest('[data-archive-page-size]');
+            if (!pageSize) {
+                return;
+            }
+
+            const url = new URL(window.location.href);
+            url.searchParams.set('per_page', pageSize.value);
+            url.searchParams.set('page', '1');
+            loadPage(url.href);
+        });
+
+        window.addEventListener('popstate', () => {
+            loadPage(window.location.href, false);
+        });
+    }
+
     function setupHoverNotes() {
         const note = document.createElement('div');
         note.className = 'hover-note';
@@ -436,6 +527,7 @@
         setupStartModal();
         setupDeleteConfirmation();
         setupArchiveFilters();
+        setupArchivePagination();
         document.addEventListener('click', (event) => {
             const addTaxTypeButton = event.target.closest('[data-add-tax-type]');
             if (addTaxTypeButton) {
