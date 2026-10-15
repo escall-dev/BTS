@@ -2,7 +2,7 @@
 <section class="report-generation-workspace">
     <header class="workspace-heading">
         <h1>Report Generation</h1>
-        <p>Select the report workflow to begin.</p>
+        <p>Select the report process to begin.</p>
     </header>
 
     <div class="action-grid report-start-grid">
@@ -29,7 +29,7 @@
         </form>
     </section>
 </div><noscript>
-    <p class="empty-state">Enable JavaScript to start a report workflow from this page.</p>
+    <p class="empty-state">Enable JavaScript to start a report process from this page.</p>
 </noscript>
 <?php
 $content = ob_get_clean();

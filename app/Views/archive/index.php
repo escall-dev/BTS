@@ -1,6 +1,6 @@
 <?php
 $archives = $archives ?? [];
-$filters = $filters ?? ['status' => '', 'date_from' => '', 'date_to' => '', 'process_number' => ''];
+$filters = $filters ?? ['status' => '', 'workflow' => '', 'date_from' => '', 'date_to' => '', 'process_number' => ''];
 $totalArchives = (int) ($totalArchives ?? count($archives));
 $archivePerPage = max(1, (int) ($archivePerPage ?? 10));
 $archivePage = max(1, (int) ($archivePage ?? 1));
@@ -11,7 +11,7 @@ $hasFilters = count(array_filter($filters, static fn ($key): bool => !in_array($
 $escape = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $archivePageUrl = static function (int $page) use ($filters): string {
     $query = [];
-    foreach (['status', 'date_from', 'date_to', 'process_number', 'per_page'] as $key) {
+    foreach (['status', 'workflow', 'date_from', 'date_to', 'process_number', 'per_page'] as $key) {
         if (trim((string) ($filters[$key] ?? '')) !== '') {
             $query[$key] = (string) $filters[$key];
         }
@@ -23,7 +23,7 @@ ob_start();
 ?>
 <section class="page-header">
     <h1>Archived Reports</h1>
-    <p>Saved report processes are listed here. Continue unfinished work or review completed workflows.</p>
+    <p>Saved report processes are listed here. Continue unfinished work or review completed processes.</p>
 </section>
 
 <?php if ($deleted): ?>
@@ -35,7 +35,7 @@ ob_start();
     <div>
         <span class='pbc-report-kicker'>Completed transactions</span>
         <h2>Punong Barangay Certification</h2>
-        <p>Generate a PDF certification from workflows that have finished the full process.</p>
+        <p>Generate a PDF certification from report processes that have finished.</p>
     </div>
     <a class='button' href='/BTS/archive/certification'>Open certification</a>
 </section>
@@ -58,6 +58,15 @@ ob_start();
                 <option value="completed" <?= $filters['status'] === 'completed' ? 'selected' : '' ?>>Completed</option>
             </select>
             <?php if (isset($filterErrors['status'])): ?><small class="field-error"><?= $escape($filterErrors['status']) ?></small><?php endif; ?>
+        </label>
+        <label>
+            <span>Process Type</span>
+            <select name="workflow" data-archive-filter-control>
+                <option value="" <?= $filters['workflow'] === '' ? 'selected' : '' ?>>All process types</option>
+                <option value="purchase-request" <?= $filters['workflow'] === 'purchase-request' ? 'selected' : '' ?>>Purchase Request</option>
+                <option value="disbursement-voucher" <?= $filters['workflow'] === 'disbursement-voucher' ? 'selected' : '' ?>>Disbursement Voucher</option>
+            </select>
+            <?php if (isset($filterErrors['workflow'])): ?><small class="field-error"><?= $escape($filterErrors['workflow']) ?></small><?php endif; ?>
         </label>
         <label>
             <span>Created From</span>
@@ -98,7 +107,7 @@ ob_start();
 
                         <th>Process</th>
                         <th>Project Title</th>
-                        <th>Workflow</th>
+                        <th>Process Type</th>
                         <th>Current Step</th>
                         <th>Progress</th>
                         <th>Status</th>
@@ -128,11 +137,11 @@ ob_start();
                                 <small><?= $escape($archive['created_at'] ?? '') ?></small>
                             </td>
                             <td class="archive-project-title" data-label="Project Title"><?= $escape($archive['project_title'] ?? 'Not entered yet') ?></td>
-                            <td data-label="Workflow"><?= $escape(ucwords(str_replace('-', ' ', (string) ($archive['start_type'] ?? '')))) ?></td>
+                            <td data-label="Process Type"><?= $escape(ucwords(str_replace('-', ' ', (string) ($archive['start_type'] ?? '')))) ?></td>
                             <td data-label="Current Step"><?= $escape($currentStepLabel) ?></td>
                             <td data-label="Progress">
                                 <div class="archive-progress-text"><?= $savedSteps ?> / <?= $totalSteps ?> saved</div>
-                                <div class="archive-step-list" aria-label="Workflow step progress">
+                                <div class="archive-step-list" aria-label="Report process step progress">
                                     <?php foreach ($steps as $workflowStep): ?>
                                         <?php
                                         $stepKey = (string) ($workflowStep['step_key'] ?? '');

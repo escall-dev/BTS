@@ -1,13 +1,13 @@
 <?php ob_start(); ?>
 <section class="page-header">
     <h1>Dashboard</h1>
-    <p>Start a treasury report workflow.</p>
+    <p>Start a treasury report process.</p>
 </section>
 
 <section class="action-grid">
     <button type="button" class="action-card" data-start-workflow data-start-action="/BTS/reports/start/purchase-request">
         <span>Generate Purchase Request</span>
-        <small>Runs the full Purchase Request to RIS workflow.</small>
+        <small>Runs the full Purchase Request to RIS process.</small>
     </button>
     <button type="button" class="action-card" data-start-workflow data-start-action="/BTS/reports/start/disbursement-voucher">
         <span>Generate Disbursement Voucher</span>
@@ -27,7 +27,7 @@
         </form>
     </section>
 </div><noscript>
-    <p class="empty-state">Enable JavaScript to start a report workflow from this page.</p>
+    <p class="empty-state">Enable JavaScript to start a report process from this page.</p>
 </noscript>
 <?php
 $content = ob_get_clean();

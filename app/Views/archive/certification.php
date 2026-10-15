@@ -7,7 +7,7 @@ ob_start();
     <div>
         <span class="pbc-report-kicker">Archive / Completed transactions</span>
         <h1>Punong Barangay Certification</h1>
-        <p>Create one PDF certification from workflows completed within a selected date range.</p>
+        <p>Create one PDF certification from report processes completed within a selected date range.</p>
     </div>
     <a class="button secondary" href="/BTS/archive">Back to Archived Reports</a>
 </section>
@@ -50,7 +50,7 @@ ob_start();
         <button type="submit">Generate PDF</button>
     </form>
 
-    <p class="pbc-report-note">Rows are selected by workflow completion date. The printed process date is the date each workflow finished.</p>
+    <p class="pbc-report-note">Rows are selected by process completion date. The printed process date is the date each process finished.</p>
 </section>
 <?php
 $content = ob_get_clean();

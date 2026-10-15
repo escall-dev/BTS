@@ -1551,6 +1551,12 @@ class Workflow extends Model
             $conditions[] = $savedStepExists;
         }
 
+        $workflowType = (string) ($filters['workflow'] ?? '');
+        if ($workflowType !== '') {
+            $conditions[] = 'p.start_type = ?';
+            $parameters[] = $workflowType;
+        }
+
         $dateFrom = (string) ($filters['date_from'] ?? '');
         if ($dateFrom !== '') {
             $conditions[] = 'p.created_at >= ?';

@@ -108,6 +108,7 @@ class ArchiveController extends Controller
     {
         $filters = [
             'status' => trim((string) ($input['status'] ?? '')),
+            'workflow' => trim((string) ($input['workflow'] ?? '')),
             'date_from' => trim((string) ($input['date_from'] ?? '')),
             'date_to' => trim((string) ($input['date_to'] ?? '')),
             'process_number' => trim((string) ($input['process_number'] ?? '')),
@@ -120,6 +121,9 @@ class ArchiveController extends Controller
 
         if ($filters['status'] !== '' && !in_array($filters['status'], ['draft', 'in_progress', 'completed'], true)) {
             $errors['status'] = 'Select a valid status.';
+        }
+        if ($filters['workflow'] !== '' && !in_array($filters['workflow'], [Workflow::PURCHASE_START, Workflow::VOUCHER_START], true)) {
+            $errors['workflow'] = 'Select a valid workflow type.';
         }
         foreach (['date_from' => 'Created From', 'date_to' => 'Created To'] as $key => $label) {
             if ($filters[$key] === '') {

@@ -100,7 +100,7 @@ $nextActionNoteTitle = $canAdvance
     ? 'Continue to the next report.'
     : 'Save this report to unlock the next step.';
 $nextActionNoteBody = $canAdvance
-    ? 'This moves the workflow forward after the saved report is ready.'
+    ? 'This moves the process forward after the saved report is ready.'
     : 'Complete the required fields before continuing.';
 $printHoverNoteAttributes = $hoverNoteAttributes($printActionNoteTitle, $printActionNoteBody);
 $nextHoverNoteAttributes = $hoverNoteAttributes($nextActionNoteTitle, $nextActionNoteBody);
@@ -153,15 +153,15 @@ ob_start();
     <div class="toast error" data-toast><?= htmlspecialchars($errors['print']) ?></div>
 <?php endif; ?>
 <?php if ($isCompletedWorkflow && !$editCompleted): ?>
-    <p class="notice completed-review-notice">This workflow is complete and is open in read-only review mode. <a href="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>?edit=1">Edit this completed report</a></p>
+    <p class="notice completed-review-notice">This process is complete and is open in read-only review mode. <a href="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>?edit=1">Edit this completed report</a></p>
 <?php elseif ($isCompletedWorkflow && $editCompleted): ?>
-    <p class="notice completed-review-notice is-editing">You are editing a completed workflow. Changes will update the saved report. <a href="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>">Return to read-only review</a></p>
+    <p class="notice completed-review-notice is-editing">You are editing a completed process. Changes will update the saved report. <a href="/BTS/reports/process/<?= $processId ?>/step/<?= htmlspecialchars($stepKey) ?>">Return to read-only review</a></p>
 <?php elseif (!$isCurrent && $isSaved): ?>
     <p class="notice">You are reviewing a completed report. You may update and save it again, then return to the current step from the list.</p>
 <?php endif; ?>
 
 <div class="workflow-layout">
-    <aside class="step-list" aria-label="Workflow steps">
+    <aside class="step-list" aria-label="Report process steps">
         <?php foreach ($steps as $workflowStep): ?>
             <?php
             $stepClass = [];
