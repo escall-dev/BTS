@@ -1586,17 +1586,14 @@ class Workflow extends Model
         try {
             $stmt = $this->db->query(
                 "SELECT
-                    COUNT(CASE WHEN (p.status IS NULL OR p.status NOT IN ('completed', 'deleted'))
-                                AND (a.status IS NULL OR a.status NOT IN ('completed', 'deleted')) THEN 1 END) AS active_count,
-                    COUNT(CASE WHEN (p.status IS NULL OR p.status NOT IN ('completed', 'deleted'))
-                                AND (a.status IS NULL OR a.status NOT IN ('completed', 'deleted'))
-                                AND (SELECT COUNT(*) FROM report_steps s WHERE s.process_id = p.id AND s.is_saved = 1) > 0 THEN 1 END) AS in_progress_count,
-                    COUNT(CASE WHEN (p.status IS NULL OR p.status NOT IN ('completed', 'deleted'))
-                                AND (a.status IS NULL OR a.status NOT IN ('completed', 'deleted'))
-                                AND (
-                                    (SELECT s2.is_saved FROM report_steps s2 WHERE s2.process_id = p.id AND s2.step_key = p.current_step LIMIT 1) = 1
-                                    OR (SELECT COUNT(*) FROM report_steps s3 WHERE s3.process_id = p.id AND s3.is_saved = 1) >= (SELECT COUNT(*) FROM report_steps s4 WHERE s4.process_id = p.id)
-                                ) THEN 1 END) AS ready_count,
+                    COUNT(CASE WHEN (p.status IS NULL OR p.status <> 'deleted')
+                                AND (a.status IS NULL OR a.status <> 'deleted') THEN 1 END) AS total_count,
+                    COUNT(CASE WHEN (p.status IS NULL OR p.status <> 'deleted')
+                                AND (a.status IS NULL OR a.status <> 'deleted')
+                                AND p.start_type = 'purchase-request' THEN 1 END) AS purchase_request_count,
+                    COUNT(CASE WHEN (p.status IS NULL OR p.status <> 'deleted')
+                                AND (a.status IS NULL OR a.status <> 'deleted')
+                                AND p.start_type = 'disbursement-voucher' THEN 1 END) AS disbursement_voucher_count,
                     COUNT(CASE WHEN (COALESCE(a.status, p.status) = 'completed')
                                 AND (p.status IS NULL OR p.status <> 'deleted') THEN 1 END) AS completed_count
                 FROM report_processes p
@@ -1604,16 +1601,16 @@ class Workflow extends Model
             );
             $row = $stmt ? ($stmt->fetch(\PDO::FETCH_ASSOC) ?: []) : [];
             return [
-                'active' => (int) ($row['active_count'] ?? 0),
-                'in_progress' => (int) ($row['in_progress_count'] ?? 0),
-                'ready' => (int) ($row['ready_count'] ?? 0),
+                'total' => (int) ($row['total_count'] ?? 0),
+                'purchase_request' => (int) ($row['purchase_request_count'] ?? 0),
+                'disbursement_voucher' => (int) ($row['disbursement_voucher_count'] ?? 0),
                 'completed' => (int) ($row['completed_count'] ?? 0),
             ];
         } catch (\Throwable) {
             return [
-                'active' => 0,
-                'in_progress' => 0,
-                'ready' => 0,
+                'total' => 0,
+                'purchase_request' => 0,
+                'disbursement_voucher' => 0,
                 'completed' => 0,
             ];
         }

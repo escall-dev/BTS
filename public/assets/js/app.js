@@ -2013,14 +2013,14 @@
             }, 3400);
         });
 
-        // Live Philippine Standard Time (Asia/Manila) Clock
+        // Live dashboard clock in the configured Asia/Manila timezone.
         const clockWidget = document.querySelector('[data-live-clock]');
         if (clockWidget) {
             const timeElement = clockWidget.querySelector('[data-clock-time]');
             const dateElement = clockWidget.querySelector('[data-clock-date]');
             const timeFormatter = new Intl.DateTimeFormat('en-US', {
                 timeZone: 'Asia/Manila',
-                hour: '2-digit',
+                hour: 'numeric',
                 minute: '2-digit',
                 second: '2-digit',
                 hour12: true
@@ -2028,18 +2028,20 @@
             const dateFormatter = new Intl.DateTimeFormat('en-US', {
                 timeZone: 'Asia/Manila',
                 weekday: 'long',
-                year: 'numeric',
+                day: 'numeric',
                 month: 'long',
-                day: 'numeric'
+                year: 'numeric'
             });
 
             const updateClock = () => {
                 const now = new Date();
                 if (timeElement) {
-                    timeElement.textContent = timeFormatter.format(now);
+                    const formattedTime = timeFormatter.format(now);
+                    timeElement.textContent = formattedTime;
                 }
                 if (dateElement) {
-                    dateElement.textContent = dateFormatter.format(now);
+                    const dateParts = Object.fromEntries(dateFormatter.formatToParts(now).map((part) => [part.type, part.value]));
+                    dateElement.textContent = `${dateParts.weekday}, ${dateParts.month} ${dateParts.day}, ${dateParts.year}`;
                 }
             };
 
