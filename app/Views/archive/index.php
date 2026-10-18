@@ -129,11 +129,13 @@ ob_start();
                         $isCompleted = $status === 'completed';
                         $isDraft = $status === 'draft';
                         $updatedAt = (string) ($archive['archived_at'] ?? $archive['updated_at'] ?? $archive['completed_at'] ?? $archive['created_at'] ?? '');
+                        $processCode = (string) ($archive['process_code'] ?? '');
+                        $progressPercent = $totalSteps > 0 ? min(100, (int) round(($savedSteps / $totalSteps) * 100)) : 0;
                         ?>
                         <tr>
 
                             <td data-label="Process">
-                                <strong><?= $escape($archive['process_code'] ?? '') ?></strong>
+                                <strong><?= $escape($processCode) ?></strong>
                                 <small><?= $escape($archive['created_at'] ?? '') ?></small>
                             </td>
                             <td class="archive-project-title" data-label="Project Title"><?= $escape($archive['project_title'] ?? 'Not entered yet') ?></td>
@@ -141,18 +143,24 @@ ob_start();
                             <td data-label="Current Step"><?= $escape($currentStepLabel) ?></td>
                             <td data-label="Progress">
                                 <div class="archive-progress-text"><?= $savedSteps ?> / <?= $totalSteps ?> saved</div>
+                                <div class="archive-progress-track" role="progressbar" aria-label="Report progress for <?= $escape($processCode) ?>" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $progressPercent ?>">
+                                    <span style="width: <?= $progressPercent ?>%"></span>
+                                </div>
                                 <div class="archive-step-list" aria-label="Report process step progress">
                                     <?php foreach ($steps as $workflowStep): ?>
                                         <?php
                                         $stepKey = (string) ($workflowStep['step_key'] ?? '');
+                                        $stepOrder = (int) ($workflowStep['step_order'] ?? 0);
+                                        $stepLabel = \App\Models\Workflow::label($stepKey);
                                         $stepIsSaved = (int) ($workflowStep['is_saved'] ?? 0) === 1;
                                         $stepIsCurrent = $stepKey === $currentStep;
                                         $stepClass = 'archive-step-pill' . ($stepIsSaved ? ' is-saved' : '') . ($stepIsCurrent ? ' is-current' : '');
+                                        $stepAriaState = $stepIsCurrent && $stepIsSaved ? 'current and saved' : ($stepIsCurrent ? 'current' : ($stepIsSaved ? 'saved' : 'not saved'));
                                         ?>
                                         <?php if ($stepIsSaved || $stepIsCurrent): ?>
-                                            <a class="<?= $escape($stepClass) ?>" href="/BTS/reports/process/<?= $processId ?>/step/<?= $escape($stepKey) ?>"><?= (int) ($workflowStep['step_order'] ?? 0) ?></a>
+                                            <a class="<?= $escape($stepClass) ?>" href="/BTS/reports/process/<?= $processId ?>/step/<?= $escape($stepKey) ?>" aria-label="Step <?= $stepOrder ?>: <?= $escape($stepLabel) ?>, <?= $escape($stepAriaState) ?>" title="Step <?= $stepOrder ?>: <?= $escape($stepLabel) ?><?= $stepIsCurrent ? ' — current' : '' ?><?= $stepIsSaved ? ' — saved' : '' ?>"<?= $stepIsCurrent ? ' aria-current="step"' : '' ?>><?= $stepOrder ?></a>
                                         <?php else: ?>
-                                            <span class="<?= $escape($stepClass) ?>" aria-disabled="true"><?= (int) ($workflowStep['step_order'] ?? 0) ?></span>
+                                            <span class="<?= $escape($stepClass) ?>" aria-label="Step <?= $stepOrder ?>: <?= $escape($stepLabel) ?>, not saved" aria-disabled="true" title="Step <?= $stepOrder ?>: <?= $escape($stepLabel) ?> — not saved"><?= $stepOrder ?></span>
                                         <?php endif; ?>
                                     <?php endforeach; ?>
                                 </div>

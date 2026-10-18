@@ -16,9 +16,9 @@
 </section>
 <div class="workflow-start-modal" data-start-modal hidden>
     <div class="workflow-start-modal__backdrop" data-start-modal-close></div>
-    <section class="workflow-start-modal__panel" role="dialog" aria-modal="true" aria-labelledby="workflow-start-title">
+    <section class="workflow-start-modal__panel" role="dialog" aria-modal="true" aria-labelledby="workflow-start-title" aria-describedby="workflow-start-description" tabindex="-1">
         <h2 id="workflow-start-title">Start Report Process</h2>
-        <p>Once you proceed, this report process will be saved in Archived Reports. You can continue it later or delete it there.</p>
+        <p id="workflow-start-description">Once you proceed, this report process will be saved in Archived Reports. You can continue it later or delete it there.</p>
         <form method="post" action="/BTS/reports/start/purchase-request" data-start-modal-form>
             <div class="button-row">
                 <button type="submit">Proceed</button>

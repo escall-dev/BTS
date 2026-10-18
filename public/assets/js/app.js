@@ -325,18 +325,50 @@
             return;
         }
 
+        let opener = null;
         const closeModal = () => {
             modal.hidden = true;
+            if (opener && opener.isConnected) {
+                opener.focus();
+            }
+            opener = null;
         };
+
+        modal.addEventListener('keydown', (event) => {
+            if (event.key !== 'Tab') {
+                return;
+            }
+
+            const focusable = Array.from(modal.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+                .filter((element) => !element.hidden && element.getClientRects().length > 0);
+            if (focusable.length === 0) {
+                event.preventDefault();
+                modal.querySelector('.workflow-start-modal__panel')?.focus();
+                return;
+            }
+
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) {
+                event.preventDefault();
+                first.focus();
+            }
+        });
 
         document.addEventListener('click', (event) => {
             const startButton = event.target.closest('[data-start-workflow]');
             if (startButton) {
+                opener = startButton;
                 form.action = startButton.dataset.startAction || form.action;
                 modal.hidden = false;
                 const proceedButton = modal.querySelector('button[type="submit"]');
                 if (proceedButton) {
                     proceedButton.focus();
+                } else {
+                    modal.querySelector('.workflow-start-modal__panel')?.focus();
                 }
                 return;
             }
@@ -348,9 +380,86 @@
 
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && !modal.hidden) {
+                event.preventDefault();
                 closeModal();
             }
         });
+    }
+
+    function setupSystemInputSaveState() {
+        document.querySelectorAll('[data-system-input-form]').forEach((form) => {
+            const status = form.querySelector('[data-save-status]');
+            let isDirty = false;
+
+            const markDirty = () => {
+                if (isDirty) {
+                    return;
+                }
+                isDirty = true;
+                form.classList.add('is-dirty');
+                if (status) {
+                    status.textContent = 'Unsaved changes';
+                    status.classList.add('is-dirty');
+                }
+            };
+
+            form.addEventListener('input', markDirty);
+            form.addEventListener('change', markDirty);
+            form.addEventListener('click', (event) => {
+                if (event.target.closest('[data-add-tax-type], [data-remove-tax-type]')) {
+                    markDirty();
+                }
+            });
+            form.addEventListener('submit', () => {
+                isDirty = false;
+                form.classList.remove('is-dirty');
+                if (status) {
+                    status.textContent = 'Saving changes…';
+                    status.classList.remove('is-dirty');
+                }
+            });
+
+            window.addEventListener('beforeunload', (event) => {
+                if (!isDirty) {
+                    return;
+                }
+                event.preventDefault();
+                event.returnValue = '';
+            });
+        });
+    }
+
+    function setupSettingsSectionNavigation() {
+        const scrollToSection = (hash, behavior = 'auto') => {
+            if (!hash || !hash.startsWith('#')) {
+                return;
+            }
+            const target = document.getElementById(decodeURIComponent(hash.slice(1)));
+            if (!target || !target.matches('.system-input-form [id^="report-section-"], .system-ui-form [id^="system-ui-section-"]')) {
+                return;
+            }
+            if (!target.hasAttribute('tabindex')) {
+                target.setAttribute('tabindex', '-1');
+            }
+            target.focus({ preventScroll: true });
+            target.scrollIntoView({ behavior, block: 'start' });
+        };
+
+        document.addEventListener('click', (event) => {
+            const link = event.target.closest('.settings-section-nav a[href^="#"]');
+            if (!link) {
+                return;
+            }
+            const hash = link.getAttribute('href');
+            if (!hash || !document.getElementById(decodeURIComponent(hash.slice(1)))) {
+                return;
+            }
+            event.preventDefault();
+            window.history.pushState({ settingsSection: hash }, '', hash);
+            scrollToSection(hash, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
+        });
+
+        window.addEventListener('popstate', () => scrollToSection(window.location.hash));
     }
 
     function setupDeleteConfirmation() {
@@ -525,6 +634,8 @@
     onReady(() => {
         setupHoverNotes();
         setupStartModal();
+        setupSystemInputSaveState();
+        setupSettingsSectionNavigation();
         setupDeleteConfirmation();
         setupArchiveFilters();
         setupArchivePagination();

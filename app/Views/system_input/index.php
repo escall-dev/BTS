@@ -17,13 +17,13 @@ foreach ($inputs as $input) {
     if ($key !== '') $inputMap[$key] = $input;
 }
 $groups = [
-    ['title' => 'Barangay Information', 'description' => 'Basic report header details used across procurement documents.', 'keys' => ['BRGY', 'CITY', 'PROVINCE', 'TELNO']],
-    ['title' => 'Officials and Signatories', 'description' => 'Names printed in approval, accounting, and certification signature areas.', 'keys' => ['PUNONG_BARANGAY', 'BARANGAY_TREASURER', 'AUTHINSPECT', 'APPROPRIATION_CHAIRPERSON', 'BARANGAY_BOOKKEEPER', 'CITY_ACCOUNTANT']],
-    ['title' => 'BAC / AOC People', 'description' => 'Committee members and canvass chairperson used in BAC and canvass reports.', 'keys' => ['BACMEMBER1', 'BACMEMBER2', 'BACMEMBER3', 'BACSECRETARY', 'BACVICECHAIRMAN', 'AOCCHAIRMAN']],
-    ['title' => 'Report Number Series', 'description' => 'Starting values for auto-generated report numbers.', 'keys' => ['PR_NUMBER_SERIES', 'BAC_RESOLUTION_SERIES', 'PO_NUMBER_SERIES', 'DV_NUMBER_SERIES', 'OR_NUMBER_SERIES', 'RIS_NUMBER_SERIES', 'IAR_NUMBER_SERIES', 'PBC_NUMBER_SERIES']],
-    ['title' => 'Completed Transaction Certification', 'description' => 'Bank details printed on the Punong Barangay Certification.', 'keys' => ['PBC_BANK_ACCOUNT', 'PBC_BANK_NAME', 'PBC_BANK_ADDRESS']],
-    ['title' => 'Disbursement Check Range', 'description' => 'Available check numbers for Disbursement Voucher assignment.', 'keys' => ['CHECKNO_START', 'CHECKNO_END']],
-    ['title' => 'Report Print Settings', 'description' => 'Choose the paper used by all newly generated reports. Reports keep readable text by fitting to one page wide.', 'keys' => ['REPORT_PAPER_SIZE']],
+    ['anchor' => 'barangay-information', 'title' => 'Barangay Information', 'description' => 'Basic report header details used across procurement documents.', 'keys' => ['BRGY', 'CITY', 'PROVINCE', 'TELNO']],
+    ['anchor' => 'officials-signatories', 'title' => 'Officials and Signatories', 'description' => 'Names printed in approval, accounting, and certification signature areas.', 'keys' => ['PUNONG_BARANGAY', 'BARANGAY_TREASURER', 'AUTHINSPECT', 'APPROPRIATION_CHAIRPERSON', 'BARANGAY_BOOKKEEPER', 'CITY_ACCOUNTANT']],
+    ['anchor' => 'bac-aoc-people', 'title' => 'BAC / AOC People', 'description' => 'Committee members and canvass chairperson used in BAC and canvass reports.', 'keys' => ['BACMEMBER1', 'BACMEMBER2', 'BACMEMBER3', 'BACSECRETARY', 'BACVICECHAIRMAN', 'AOCCHAIRMAN']],
+    ['anchor' => 'report-number-series', 'title' => 'Report Number Series', 'description' => 'Starting values for auto-generated report numbers.', 'keys' => ['PR_NUMBER_SERIES', 'BAC_RESOLUTION_SERIES', 'PO_NUMBER_SERIES', 'DV_NUMBER_SERIES', 'OR_NUMBER_SERIES', 'RIS_NUMBER_SERIES', 'IAR_NUMBER_SERIES', 'PBC_NUMBER_SERIES']],
+    ['anchor' => 'transaction-certification', 'title' => 'Completed Transaction Certification', 'description' => 'Bank details printed on the Punong Barangay Certification.', 'keys' => ['PBC_BANK_ACCOUNT', 'PBC_BANK_NAME', 'PBC_BANK_ADDRESS']],
+    ['anchor' => 'disbursement-check-range', 'title' => 'Disbursement Check Range', 'description' => 'Available check numbers for Disbursement Voucher assignment.', 'keys' => ['CHECKNO_START', 'CHECKNO_END']],
+    ['anchor' => 'report-print-settings', 'title' => 'Report Print Settings', 'description' => 'Choose the paper used by all newly generated reports. Reports keep readable text by fitting to one page wide.', 'keys' => ['REPORT_PAPER_SIZE']],
 ];
 $numberKeys = ['PR_NUMBER_SERIES','BAC_RESOLUTION_SERIES','PO_NUMBER_SERIES','DV_NUMBER_SERIES','OR_NUMBER_SERIES','RIS_NUMBER_SERIES','IAR_NUMBER_SERIES','PBC_NUMBER_SERIES'];
 $renderField = static function (string $key) use ($inputMap, $errors, $numberKeys): void {
@@ -67,18 +67,22 @@ $sidebarTitle = (string) ($uiSettings['UI_APP_TITLE'] ?? 'BrgyTreasurySystem');
 </nav>
 
 <?php if ($activeTab === 'report-data'): ?>
-<form class="table-panel system-input-form" method="post" action="/BTS/system-input">
+<nav class="settings-section-nav" aria-label="Report Data sections">
+    <?php foreach ($groups as $group): ?><a href="#report-section-<?= htmlspecialchars($group['anchor']) ?>"><?= htmlspecialchars($group['title']) ?></a><?php endforeach; ?>
+    <a href="#report-section-tax-management">Tax Management</a>
+</nav>
+<form class="table-panel system-input-form" method="post" action="/BTS/system-input" data-system-input-form>
     <input type="hidden" name="settings_section" value="report-data">
     <div class="system-input-sections">
         <?php foreach ($groups as $group): ?>
-            <section class="system-input-section">
+            <section class="system-input-section" id="report-section-<?= htmlspecialchars($group['anchor']) ?>">
                 <div class="system-input-section-heading"><h2><?= htmlspecialchars($group['title']) ?></h2><p><?= htmlspecialchars($group['description']) ?></p></div>
                 <div class="system-input-grid <?= count($group['keys']) === 2 ? 'system-input-grid-compact' : '' ?>">
                     <?php foreach ($group['keys'] as $key) $renderField($key); ?>
                 </div>
             </section>
         <?php endforeach; ?>
-        <section class="system-input-section tax-management-section" data-tax-management>
+        <section class="system-input-section tax-management-section" id="report-section-tax-management" data-tax-management>
             <div class="system-input-section-heading">
                 <h2>Tax Management</h2>
                 <p>Manage the tax type names available in the Disbursement Voucher. Deduction amounts are entered in the voucher.</p>
@@ -101,12 +105,20 @@ $sidebarTitle = (string) ($uiSettings['UI_APP_TITLE'] ?? 'BrgyTreasurySystem');
             <button type="button" class="secondary" data-add-tax-type>Add Tax Type</button>
         </section>
     </div>
-    <div class="form-actions system-input-actions"><button type="submit">Save Report Data</button></div>
+    <div class="form-actions system-input-actions">
+        <p class="system-input-save-status" data-save-status role="status" aria-live="polite">No unsaved changes</p>
+        <button type="submit" data-save-button>Save Report Data</button>
+    </div>
 </form>
 <?php else: ?>
-<form class="table-panel system-ui-form" method="post" action="/BTS/system-input" enctype="multipart/form-data" data-ui-settings-form>
+<nav class="settings-section-nav" aria-label="System UI sections">
+    <a href="#system-ui-section-theme">Theme Palette</a>
+    <a href="#system-ui-section-report-colors">Generated Report Cell Colors</a>
+    <a href="#system-ui-section-logo">System Logo</a>
+</nav>
+<form class="table-panel system-ui-form" method="post" action="/BTS/system-input" enctype="multipart/form-data" data-ui-settings-form data-system-input-form>
     <input type="hidden" name="settings_section" value="system-ui">
-    <section class="system-input-section">
+    <section class="system-input-section" id="system-ui-section-theme">
         <div class="system-input-section-heading"><h2>Theme Palette</h2><p>Choose a preset or create a custom primary and accent combination.</p></div>
         <div class="palette-grid">
             <?php foreach ($palettes as $key => $palette): ?>
@@ -135,7 +147,7 @@ $sidebarTitle = (string) ($uiSettings['UI_APP_TITLE'] ?? 'BrgyTreasurySystem');
         </div>
     </section>
 
-    <section class="system-input-section report-cell-colors-section">
+    <section class="system-input-section report-cell-colors-section" id="system-ui-section-report-colors">
         <div class="system-input-section-heading"><h2>Generated Report Cell Colors</h2><p>Choose the background used by each marker group in Procurement_Report_Templates.xlsx. Text contrast is adjusted automatically.</p></div>
         <?php if ($colorGroups === []): ?>
             <div class="settings-empty-state"><strong>No color markers found.</strong><span>Add a marker such as <code>&#36;{CELL_COLOR:ITEM_HEADER}</code> to a template cell.</span></div>
@@ -152,7 +164,7 @@ $sidebarTitle = (string) ($uiSettings['UI_APP_TITLE'] ?? 'BrgyTreasurySystem');
             </div>
         <?php endif; ?>
     </section>
-    <section class="system-input-section">
+    <section class="system-input-section" id="system-ui-section-logo">
         <div class="system-input-section-heading"><h2>System Logo</h2><p>PNG, JPEG, or WebP. Maximum file size: 2 MB.</p></div>
         <div class="logo-setting-row">
             <div class="logo-preview">
@@ -165,7 +177,10 @@ $sidebarTitle = (string) ($uiSettings['UI_APP_TITLE'] ?? 'BrgyTreasurySystem');
         <?php if (!empty($errors['logo'])): ?><small class="field-error"><?= htmlspecialchars($errors['logo']) ?></small><?php endif; ?>
     </section>
 
-    <div class="form-actions system-input-actions"><button type="submit">Save System UI</button></div>
+    <div class="form-actions system-input-actions">
+        <p class="system-input-save-status" data-save-status role="status" aria-live="polite">No unsaved changes</p>
+        <button type="submit" data-save-button>Save System UI</button>
+    </div>
 </form>
 <?php endif; ?>
 <?php $content = ob_get_clean(); require __DIR__ . '/../layout/main.php'; ?>
