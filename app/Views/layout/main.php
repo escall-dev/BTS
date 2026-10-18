@@ -58,7 +58,7 @@ $sidebarIcon = static function (string $icon): string {
                 
                 <nav class="side-nav" aria-label="Primary navigation">
                     <?php foreach ($navItems as $key => [$href, $label, $icon]): ?>
-                        <a class="<?= $active === $key ? 'is-active' : '' ?>" href="<?= htmlspecialchars($href) ?>" aria-label="<?= htmlspecialchars($label) ?>" title="<?= htmlspecialchars($label) ?>">
+                        <a class="<?= $active === $key ? 'is-active' : '' ?>" href="<?= htmlspecialchars($href) ?>" aria-label="<?= htmlspecialchars($label) ?>">
                             <span class="nav-icon"><?= $sidebarIcon($icon) ?></span>
                             <span class="nav-label"><?= htmlspecialchars($label) ?></span>
                         </a>
@@ -76,7 +76,10 @@ $sidebarIcon = static function (string $icon): string {
                             <small>Treasury user</small>
                         </span>
                     </div>
-                    <a class="sidebar-logout" href="/BTS/logout" aria-label="Logout" title="Logout">Logout</a>
+                    <a class="sidebar-logout" href="/BTS/logout" aria-label="Logout" title="Logout">
+                        <span class="sidebar-logout-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg></span>
+                        <span class="sidebar-logout-label">Logout</span>
+                    </a>
                 </section>
             </aside>
             <button type="button" class="sidebar-toggle" data-sidebar-toggle aria-expanded="true" aria-label="Minimize sidebar" title="Minimize sidebar">

@@ -1394,6 +1394,54 @@
         });
 
 
+        const sidebar = document.querySelector('.sidebar');
+        const sidebarNav = sidebar ? sidebar.querySelector('.side-nav') : null;
+        if (sidebarNav) {
+            const tooltip = document.createElement('div');
+            tooltip.className = 'sidebar-nav-tooltip';
+            tooltip.id = 'sidebar-nav-tooltip';
+            tooltip.setAttribute('role', 'tooltip');
+            document.body.append(tooltip);
+
+            const hideNavTooltip = () => {
+                tooltip.classList.remove('is-visible');
+                sidebarNav.querySelectorAll('[aria-describedby="sidebar-nav-tooltip"]').forEach((link) => {
+                    link.removeAttribute('aria-describedby');
+                });
+            };
+            const showNavTooltip = (link) => {
+                if (window.innerWidth < 981 || !document.documentElement.classList.contains('sidebar-is-collapsed')) {
+                    hideNavTooltip();
+                    return;
+                }
+
+                const label = link.getAttribute('aria-label') || link.querySelector('.nav-label')?.textContent.trim();
+                if (!label) return;
+
+                tooltip.textContent = label;
+                link.setAttribute('aria-describedby', tooltip.id);
+                const rect = link.getBoundingClientRect();
+                const tooltipWidth = tooltip.getBoundingClientRect().width;
+                const left = rect.right + 12 + tooltipWidth <= window.innerWidth
+                    ? rect.right + 12
+                    : Math.max(8, rect.left - tooltipWidth - 12);
+                tooltip.style.left = `${Math.round(left)}px`;
+                tooltip.style.top = `${Math.round(rect.top + rect.height / 2)}px`;
+                tooltip.classList.add('is-visible');
+            };
+
+            sidebarNav.querySelectorAll('a').forEach((link) => {
+                link.addEventListener('pointerenter', (event) => {
+                    if (event.pointerType !== 'touch') showNavTooltip(link);
+                });
+                link.addEventListener('pointerleave', hideNavTooltip);
+                link.addEventListener('focus', () => showNavTooltip(link));
+                link.addEventListener('blur', hideNavTooltip);
+            });
+            sidebar.addEventListener('scroll', hideNavTooltip, { passive: true });
+            window.addEventListener('resize', hideNavTooltip, { passive: true });
+        }
+
         const sidebarToggle = document.querySelector('[data-sidebar-toggle]');
         if (sidebarToggle) {
             const syncSidebarToggle = () => {
