@@ -917,8 +917,10 @@
         const preview = picker.querySelector('[data-date-range-preview]');
         const applyButton = picker.querySelector('[data-date-range-apply]');
         const cancelButton = picker.querySelector('[data-date-range-cancel]');
+        const manualFromInput = picker.querySelector('[data-date-range-manual-from]');
+        const manualToInput = picker.querySelector('[data-date-range-manual-to]');
         const months = Array.from(picker.querySelectorAll('[data-calendar-month]'));
-        if (!fromInput || !toInput || !trigger || !clearButton || !dateRangeControl || !label || !popover || months.length !== 2) {
+        if (!fromInput || !toInput || !trigger || !clearButton || !dateRangeControl || !label || !popover || !manualFromInput || !manualToInput || months.length !== 2) {
             return;
         }
 
@@ -940,6 +942,20 @@
         const formatDate = (date) => new Intl.DateTimeFormat('en-US', {
             month: '2-digit', day: '2-digit', year: 'numeric', timeZone: 'UTC',
         }).format(date);
+        const formatManualDate = (date) => date
+            ? `${String(date.getUTCMonth() + 1).padStart(2, '0')}/${String(date.getUTCDate()).padStart(2, '0')}/${date.getUTCFullYear()}`
+            : '';
+        const parseManualDate = (value) => {
+            const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value.trim());
+            if (!match) return null;
+            const month = Number(match[1]);
+            const day = Number(match[2]);
+            const year = Number(match[3]);
+            const date = new Date(Date.UTC(year, month - 1, day));
+            return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+                ? date
+                : null;
+        };
         const formatAccessibleDate = (date) => new Intl.DateTimeFormat('en-US', {
             weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC',
         }).format(date);
@@ -961,6 +977,7 @@
         let selectedStart = appliedStart;
         let selectedEnd = appliedEnd;
         let visibleMonth = monthStart(appliedStart || appliedEnd || new Date());
+        let manualDateError = '';
 
         const restoreAppliedRange = () => {
             appliedStart = parseDate(fromInput.value);
@@ -971,19 +988,34 @@
             label.textContent = formatRangeLabel(appliedStart, appliedEnd);
             clearButton.hidden = !appliedStart && !appliedEnd;
             dateRangeControl.classList.toggle('has-clear', Boolean(appliedStart || appliedEnd));
+            manualFromInput.value = formatManualDate(appliedStart);
+            manualToInput.value = formatManualDate(appliedEnd);
+            manualFromInput.removeAttribute('aria-invalid');
+            manualToInput.removeAttribute('aria-invalid');
+            manualDateError = '';
             render();
         };
 
         const updatePreview = () => {
-            if (!selectedStart) {
+            if (manualDateError) {
+                preview.textContent = manualDateError;
+                applyButton.disabled = true;
+                return;
+            }
+            if (selectedStart && selectedEnd) {
+                preview.textContent = `${formatDate(selectedStart)} → ${formatDate(selectedEnd)}`;
+                applyButton.disabled = false;
+                return;
+            }
+            if (!selectedStart && !selectedEnd) {
                 preview.textContent = 'Select start and end dates';
                 applyButton.disabled = true;
                 return;
             }
-            preview.textContent = selectedEnd
-                ? `${formatDate(selectedStart)} → ${formatDate(selectedEnd)}`
-                : `${formatDate(selectedStart)} → Choose end date`;
-            applyButton.disabled = !selectedEnd;
+            preview.textContent = selectedStart
+                ? `${formatDate(selectedStart)} → Choose end date`
+                : `${formatDate(selectedEnd)} → Choose start date`;
+            applyButton.disabled = true;
         };
 
         const updateSelection = () => {
@@ -996,7 +1028,40 @@
                 button.classList.toggle('is-range-end', Boolean(endKey && key === endKey && endKey !== startKey));
                 button.setAttribute('aria-pressed', String(key === startKey || key === endKey));
             });
+            manualFromInput.value = formatManualDate(selectedStart);
+            manualToInput.value = formatManualDate(selectedEnd);
+            manualFromInput.removeAttribute('aria-invalid');
+            manualToInput.removeAttribute('aria-invalid');
             updatePreview();
+        };
+
+        const syncManualDates = () => {
+            const startValue = manualFromInput.value.trim();
+            const endValue = manualToInput.value.trim();
+            const start = startValue === '' ? null : parseManualDate(startValue);
+            const end = endValue === '' ? null : parseManualDate(endValue);
+            const invalidStart = startValue !== '' && !start;
+            const invalidEnd = endValue !== '' && !end;
+            manualFromInput.setAttribute('aria-invalid', String(invalidStart));
+            manualToInput.setAttribute('aria-invalid', String(invalidEnd));
+
+            if (invalidStart || invalidEnd) {
+                manualDateError = 'Enter valid dates as MM/DD/YYYY.';
+                updatePreview();
+                return;
+            }
+            if (start && end && dateKey(start) > dateKey(end)) {
+                manualToInput.setAttribute('aria-invalid', 'true');
+                manualDateError = 'End date must be on or after start date.';
+                updatePreview();
+                return;
+            }
+
+            manualDateError = '';
+            selectedStart = start;
+            selectedEnd = end;
+            visibleMonth = monthStart(selectedStart || selectedEnd || visibleMonth);
+            render();
         };
 
         const renderMonth = (monthElement, monthOffset) => {
@@ -1004,8 +1069,8 @@
             monthElement.querySelector('[data-calendar-title]').textContent = formatMonth(date);
             const daysContainer = monthElement.querySelector('[data-calendar-days]');
             const firstDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
-            const mondayOffset = (firstDay.getUTCDay() + 6) % 7;
-            const firstCell = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1 - mondayOffset));
+            const sundayOffset = firstDay.getUTCDay();
+            const firstCell = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1 - sundayOffset));
             const startKey = dateKey(selectedStart);
             const endKey = dateKey(selectedEnd);
             const cells = [];
@@ -1066,6 +1131,15 @@
                 setOpen(false);
             }
         });
+        [manualFromInput, manualToInput].forEach((input) => {
+            input.addEventListener('change', syncManualDates);
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    syncManualDates();
+                }
+            });
+        });
         clearButton.addEventListener('click', (event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -1091,7 +1165,15 @@
                 if (!picked) {
                     return;
                 }
-                if (!selectedStart || selectedEnd) {
+                manualDateError = '';
+                if (!selectedStart && selectedEnd) {
+                    if (dateKey(picked) <= dateKey(selectedEnd)) {
+                        selectedStart = picked;
+                    } else {
+                        selectedStart = selectedEnd;
+                        selectedEnd = picked;
+                    }
+                } else if (!selectedStart || selectedEnd) {
                     selectedStart = picked;
                     selectedEnd = null;
                 } else if (dateKey(picked) < dateKey(selectedStart)) {

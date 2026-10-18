@@ -157,15 +157,22 @@ ob_start();
                     <?php for ($calendarIndex = 0; $calendarIndex < 2; $calendarIndex++): ?>
                         <section class="archive-calendar-month" data-calendar-month="<?= $calendarIndex ?>">
                             <header><button type="button" aria-label="Previous month" data-calendar-previous <?= $calendarIndex === 1 ? 'hidden' : '' ?>>‹</button><strong data-calendar-title></strong><button type="button" aria-label="Next month" data-calendar-next <?= $calendarIndex === 0 ? 'hidden' : '' ?>>›</button></header>
-                            <div class="archive-calendar-weekdays" aria-hidden="true"><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span></div>
+                            <div class="archive-calendar-weekdays" aria-hidden="true"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div>
                             <div class="archive-calendar-days" data-calendar-days></div>
                         </section>
                     <?php endfor; ?>
                 </div>
                 <footer class="archive-date-range-footer">
+                    <div class="archive-date-range-manual" role="group" aria-label="Enter date range">
+                        <label><span>Start date</span><input type="text" inputmode="numeric" autocomplete="off" placeholder="MM/DD/YYYY" aria-label="Start date, month day year" data-date-range-manual-from></label>
+                        <span class="archive-date-range-manual-arrow" aria-hidden="true">→</span>
+                        <label><span>End date</span><input type="text" inputmode="numeric" autocomplete="off" placeholder="MM/DD/YYYY" aria-label="End date, month day year" data-date-range-manual-to></label>
+                    </div>
                     <span class="archive-date-range-preview" aria-live="polite" data-date-range-preview>Select start and end dates</span>
-                    <button class="secondary" type="button" data-date-range-cancel>Cancel</button>
-                    <button type="button" data-date-range-apply>Apply dates</button>
+                    <div class="archive-date-range-actions">
+                        <button class="secondary" type="button" data-date-range-cancel>Cancel</button>
+                        <button type="button" data-date-range-apply>Apply dates</button>
+                    </div>
                 </footer>
             </div>
             <?php if (isset($filterErrors['date_from'])): ?><small class="field-error"><?= $escape($filterErrors['date_from']) ?></small><?php endif; ?>

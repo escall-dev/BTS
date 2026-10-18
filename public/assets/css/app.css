@@ -3646,31 +3646,93 @@ button.action-card:hover {
 
 .archive-calendar-day.is-in-range {
     border-radius: 0;
-    background: rgba(166, 168, 103, 0.16);
+    background: color-mix(in srgb, var(--accent) 32%, var(--surface));
+    color: var(--ink);
 }
 
 .archive-calendar-day.is-range-start,
 .archive-calendar-day.is-range-end {
+    position: relative;
+    z-index: 1;
     border-radius: 6px;
-    background: var(--accent);
-    color: var(--accent-foreground);
+    background: var(--primary-dark);
+    color: #ffffff;
     font-weight: 700;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 66%, var(--surface));
 }
 
 .archive-date-range-footer {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(130px, .72fr) auto;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     margin-top: 10px;
-    padding: 10px 2px 0;
+    padding: 12px 2px 0;
     border-top: 1px solid var(--line);
 }
 
+.archive-date-range-manual {
+    display: flex;
+    align-items: end;
+    gap: 7px;
+    min-width: 0;
+}
+
+.archive-date-range-manual label {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.archive-date-range-manual label > span {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.archive-date-range-manual input {
+    width: 112px;
+    min-width: 0;
+    min-height: 34px;
+    padding: 6px 7px;
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    background: var(--surface-soft);
+    color: var(--ink);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+.archive-date-range-manual input:focus {
+    border-color: var(--primary-dark);
+    outline: 3px solid color-mix(in srgb, var(--accent) 48%, transparent);
+    outline-offset: 1px;
+}
+
+.archive-date-range-manual input[aria-invalid="true"] {
+    border-color: #b94b43;
+    background: color-mix(in srgb, #b94b43 7%, var(--surface));
+}
+
+.archive-date-range-manual-arrow {
+    padding-bottom: 8px;
+    color: var(--muted);
+    font-size: 16px;
+}
+
 .archive-date-range-preview {
-    flex: 1 1 auto;
+    min-width: 0;
     color: var(--muted);
     font-size: 12px;
     font-weight: 600;
+    text-align: center;
+}
+
+.archive-date-range-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
 }
 
 .archive-date-range-footer button {
@@ -4188,15 +4250,26 @@ button.action-card:hover {
     }
 
     .archive-date-range-footer {
-        flex-wrap: wrap;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .archive-date-range-manual {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+    }
+
+    .archive-date-range-manual input {
+        width: min(112px, 34vw);
     }
 
     .archive-date-range-preview {
-        flex-basis: 100%;
+        grid-column: 1 / -1;
+        text-align: center;
     }
 
-    .archive-date-range-footer button {
-        flex: 1 1 0;
+    .archive-date-range-actions {
+        grid-column: 1 / -1;
     }
 
     .archive-filter-heading {
