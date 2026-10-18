@@ -6039,6 +6039,13 @@ body.is-guest {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
+.auth-form input:disabled {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.30);
+    color: rgba(255, 255, 255, 0.56);
+    cursor: not-allowed;
+}
+
 .auth-password-field {
     position: relative;
 }

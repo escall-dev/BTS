@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS login_attempts (
+    attempt_key CHAR(64) NOT NULL PRIMARY KEY,
+    failed_attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    lockout_level TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    locked_until BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_login_attempts_updated_at (updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

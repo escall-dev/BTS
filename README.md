@@ -43,6 +43,9 @@ The **Barangay Treasury System (BTS)** streamlines and automates local governmen
 - Prevents tampering with completed processes while allowing workflow progression.
 - Deleted report processes move to Trash and can be restored for 30 days; expired items are permanently removed during authenticated app activity.
 
+### 🔐 Login Security
+- Apply `database/migrations/20261018_add_login_attempt_lockouts.sql` once to enable escalating login lockouts (3, 6, 12 minutes, up to 24 hours).
+
 ### 🗑️ Trash Retention
 - Apply `database/migrations/20261018_add_trash_retention.sql` once to add the deletion timestamp and backfill existing deleted reports.
 - The app checks for expired reports at least hourly during authenticated use and whenever Archived Reports or Trash is opened.

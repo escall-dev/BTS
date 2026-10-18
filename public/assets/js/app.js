@@ -847,6 +847,110 @@
             if (event.target === dialog) dialog.close();
         });
     }
+    function setupLoginLockout(form, usernameInput) {
+        const status = form.querySelector('[data-login-lockout-status]');
+        const error = form.querySelector('[data-login-error]');
+        const statusUrl = form.dataset.loginLockoutStatusUrl;
+        if (!status || !statusUrl || !usernameInput) return;
+
+        const controls = Array.from(form.querySelectorAll('input, button'));
+        let lockoutUntil = Number(form.dataset.loginLockoutUntil || 0) * 1000;
+        let lockoutActive = lockoutUntil > Date.now();
+        let countdownTimer = 0;
+        let checkTimer = 0;
+        let requestNumber = 0;
+
+        const setDisabled = (disabled) => controls.forEach((control) => { control.disabled = disabled; });
+        const formatRemaining = (seconds) => {
+            const minutes = Math.floor(seconds / 60);
+            const remainder = seconds % 60;
+            return minutes > 0 ? `${minutes}:${String(remainder).padStart(2, '0')}` : `${remainder}s`;
+        };
+        const unlock = () => {
+            window.clearTimeout(countdownTimer);
+            lockoutActive = false;
+            lockoutUntil = 0;
+            form.dataset.loginLockoutUntil = '0';
+            setDisabled(false);
+            status.hidden = true;
+            status.textContent = '';
+        };
+        const renderCountdown = () => {
+            if (!lockoutActive) return;
+            const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+            if (remaining <= 0) {
+                checkStatus();
+                return;
+            }
+
+            setDisabled(true);
+            if (error) error.hidden = true;
+            status.hidden = false;
+            status.textContent = `Too many failed attempts. Please wait ${formatRemaining(remaining)} before trying again.`;
+            countdownTimer = window.setTimeout(renderCountdown, Math.min(1000, remaining * 1000));
+        };
+        const applyStatus = (remaining) => {
+            if (remaining > 0) {
+                lockoutActive = true;
+                lockoutUntil = Date.now() + remaining * 1000;
+                form.dataset.loginLockoutUntil = String(Math.ceil(lockoutUntil / 1000));
+                renderCountdown();
+                return;
+            }
+            unlock();
+        };
+        const checkStatus = async () => {
+            const username = usernameInput.value.trim();
+            if (!username || !usernameInput.checkValidity()) {
+                if (lockoutActive && lockoutUntil <= Date.now()) unlock();
+                return;
+            }
+
+            const currentRequest = ++requestNumber;
+            try {
+                const response = await fetch(statusUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                    },
+                    body: new URLSearchParams({ username }),
+                    credentials: 'same-origin',
+                    cache: 'no-store',
+                });
+                const result = await response.json();
+                if (currentRequest !== requestNumber || username !== usernameInput.value.trim()) return;
+                if (!Number.isInteger(result.retryAfterSeconds)) throw new Error('Lockout status unavailable');
+                applyStatus(result.retryAfterSeconds);
+            } catch {
+                if (currentRequest !== requestNumber) return;
+                if (lockoutActive) {
+                    setDisabled(true);
+                    countdownTimer = window.setTimeout(checkStatus, 1000);
+                }
+            }
+        };
+        const scheduleStatusCheck = () => {
+            window.clearTimeout(checkTimer);
+            requestNumber++;
+            if (!usernameInput.value.trim() || !usernameInput.checkValidity()) {
+                if (lockoutActive && lockoutUntil <= Date.now()) unlock();
+                return;
+            }
+            checkTimer = window.setTimeout(checkStatus, 200);
+        };
+
+        usernameInput.addEventListener('input', scheduleStatusCheck);
+        usernameInput.addEventListener('change', scheduleStatusCheck);
+        usernameInput.addEventListener('blur', scheduleStatusCheck);
+        if (lockoutActive) {
+            setDisabled(true);
+            renderCountdown();
+        } else {
+            scheduleStatusCheck();
+        }
+    }
+
     function setupLoginForm() {
         const form = document.querySelector('[data-login-form]');
         if (!form) return;
@@ -861,7 +965,7 @@
             try {
                 const rememberedUsername = window.localStorage.getItem(rememberedUsernameKey);
                 if (rememberedUsername) {
-                    usernameInput.value = rememberedUsername;
+                    if (!usernameInput.value.trim()) usernameInput.value = rememberedUsername;
                     rememberInput.checked = true;
                 }
             } catch {
@@ -885,6 +989,8 @@
             usernameInput.addEventListener('input', persistRememberedUsername);
             form.addEventListener('submit', persistRememberedUsername);
         }
+
+        if (usernameInput) setupLoginLockout(form, usernameInput);
 
         if (passwordInput && passwordToggle) {
             passwordToggle.addEventListener('click', () => {

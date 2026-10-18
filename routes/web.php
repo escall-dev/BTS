@@ -3,6 +3,7 @@
 /** @var \App\Core\Router $router */
 
 $router->add('GET', '/', 'AuthController@showLogin');
+$router->add('POST', '/login/lockout-status', 'AuthController@loginLockoutStatus');
 $router->add('POST', '/login', 'AuthController@login');
 $router->add('GET', '/logout', 'AuthController@logout');
 

@@ -35,29 +35,33 @@ ob_start();
             <h1 id="login-title">Login</h1>
             <p class="auth-welcome">Hello there! Sign in to continue.</p>
         </header>
-        <form method="post" action="/BTS/login" autocomplete="on" class="form-stack auth-form" data-login-form>
+        <?php $isLoginLocked = (int) ($lockoutSeconds ?? 0) > 0; ?>
+        <form method="post" action="/BTS/login" autocomplete="on" class="form-stack auth-form" data-login-form data-login-lockout-until="<?= $isLoginLocked ? time() + (int) $lockoutSeconds : 0 ?>" data-login-lockout-status-url="/BTS/login/lockout-status">
             <?php if (!empty($error)): ?>
-                <p class="alert auth-error" role="alert"><?= htmlspecialchars($error) ?></p>
+                <p class="alert auth-error" role="alert" data-login-error><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p>
+            <?php else: ?>
+                <p class="alert auth-error" role="alert" data-login-error hidden></p>
             <?php endif; ?>
+            <p class="alert auth-error" role="status" aria-live="polite" aria-atomic="true" data-login-lockout-status<?= $isLoginLocked ? '' : ' hidden' ?>><?= $isLoginLocked ? htmlspecialchars((string) $lockoutMessage, ENT_QUOTES, 'UTF-8') : '' ?></p>
             <div class="auth-field">
                 <label for="login-username">Username</label>
-                <input id="login-username" type="text" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+                <input id="login-username" type="text" name="username" value="<?= htmlspecialchars((string) ($username ?? ''), ENT_QUOTES, 'UTF-8') ?>" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="1" maxlength="64" pattern="[A-Za-z0-9_.@-]+" title="Use letters, numbers, periods, underscores, hyphens, or @." required<?= $isLoginLocked ? ' disabled' : '' ?>>
             </div>
             <div class="auth-field">
                 <label for="login-password">Password</label>
                 <div class="auth-password-field">
-                    <input id="login-password" type="password" name="password" autocomplete="current-password" required>
-                    <button type="button" class="auth-password-toggle" data-password-toggle aria-label="Show password" aria-pressed="false" aria-controls="login-password">
+                    <input id="login-password" type="password" name="password" autocomplete="current-password" maxlength="4096" required<?= $isLoginLocked ? ' disabled' : '' ?>>
+                    <button type="button" class="auth-password-toggle" data-password-toggle aria-label="Show password" aria-pressed="false" aria-controls="login-password"<?= $isLoginLocked ? ' disabled' : '' ?>>
                         <svg data-password-eye-open viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
                         <svg data-password-eye-closed viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.2A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a16 16 0 0 1-3.1 3.9M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7a10.8 10.8 0 0 0 4.1-.8"/></svg>
                     </button>
                 </div>
             </div>
             <label class="auth-remember" for="remember-username">
-                <input id="remember-username" type="checkbox" data-remember-username>
+                <input id="remember-username" type="checkbox" data-remember-username<?= $isLoginLocked ? ' disabled' : '' ?>>
                 <span>Remember me</span>
             </label>
-            <button type="submit" class="auth-submit">Sign in</button>
+            <button type="submit" class="auth-submit"<?= $isLoginLocked ? ' disabled' : '' ?>>Sign in</button>
         </form>
     </section>
     <aside class="auth-brand auth-brand--process" aria-label="Making every process possible">
