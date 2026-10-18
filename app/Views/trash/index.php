@@ -1,8 +1,11 @@
 <?php
 $trashItems = $trashItems ?? [];
-$filters = $filters ?? ['recently_deleted' => '', 'progress' => ''];
+$filters = $filters ?? ['recently_deleted' => '', 'progress' => '', 'workflow' => '', 'process_number' => '', 'per_page' => '10', 'page' => 1];
 $hasFilters = $hasFilters ?? false;
 $totalTrashItems = $totalTrashItems ?? count($trashItems);
+$trashPerPage = max(1, (int) ($trashPerPage ?? 10));
+$trashPage = max(1, (int) ($trashPage ?? 1));
+$trashPageCount = max(1, (int) ($trashPageCount ?? 1));
 $restored = $restored ?? false;
 $purged = $purged ?? false;
 $notFound = $notFound ?? false;
@@ -23,6 +26,29 @@ $formatDateTime = static function ($value) use ($timezone): array {
         return ['', ''];
     }
 };
+$trashPageSizes = ['5' => '5', '10' => '10', '15' => '15', '20' => '20', 'all' => 'All'];
+$trashPageUrl = static function (int $page) use ($filters): string {
+    $query = [];
+    foreach (['recently_deleted', 'progress', 'workflow', 'process_number', 'per_page'] as $key) {
+        if (trim((string) ($filters[$key] ?? '')) !== '') {
+            $query[$key] = (string) $filters[$key];
+        }
+    }
+    $query['page'] = max(1, $page);
+    return '/BTS/trash?' . http_build_query($query);
+};
+$trashPageItems = [];
+if ($trashPageCount <= 9) {
+    $trashPageItems = range(1, $trashPageCount);
+} else {
+    $trashPageItems[] = 1;
+    $windowStart = max(2, $trashPage - 2);
+    $windowEnd = min($trashPageCount - 1, $trashPage + 2);
+    if ($windowStart > 2) $trashPageItems[] = '…';
+    for ($pageNumber = $windowStart; $pageNumber <= $windowEnd; $pageNumber++) $trashPageItems[] = $pageNumber;
+    if ($windowEnd < $trashPageCount - 1) $trashPageItems[] = '…';
+    $trashPageItems[] = $trashPageCount;
+}
 ob_start();
 ?>
 <section class="page-header trash-page-header">
@@ -30,7 +56,6 @@ ob_start();
         <h1>Trash</h1>
         <p>Restore deleted reports or remove them permanently.</p>
     </div>
-    <a class="button secondary" href="/BTS/archive">Back to Archived Reports</a>
 </section>
 
 <?php if ($restored): ?><span data-success-modal data-success-title="Report restored" data-success-message="The report and its saved progress are available again in Archived Reports." data-success-label="Done" data-success-secondary-label="View Archive" data-success-secondary-href="/BTS/archive" hidden></span><?php endif; ?>
@@ -51,7 +76,7 @@ ob_start();
         </div>
         <?php if ($hasFilters): ?><a class="button secondary" href="/BTS/trash">Clear</a><?php endif; ?>
     </div>
-    <form class="archive-filter-form trash-filter-form" method="get" action="/BTS/trash" data-archive-filter-form>
+    <form class="archive-filter-form trash-filter-form" method="get" action="/BTS/trash" data-archive-filter-form data-suggestions-url="/BTS/trash/suggestions">
         <div class="archive-filter-select trash-filter-select" data-archive-custom-select>
             <span id="trash-recent-filter-label">Recently deleted</span>
             <select class="archive-native-filter-select" name="recently_deleted" data-archive-filter-control data-archive-native-select aria-hidden="true" tabindex="-1" hidden>
@@ -90,13 +115,55 @@ ob_start();
                 <div role="option" tabindex="-1" aria-selected="<?= $filters['progress'] === 'complete' ? 'true' : 'false' ?>" data-archive-select-option data-value="complete">All steps saved</div>
             </div>
         </div>
+        <div class="archive-filter-select archive-type-filter trash-filter-select" data-archive-custom-select>
+            <span id="trash-type-filter-label">Process Type</span>
+            <select class="archive-native-filter-select" name="workflow" data-archive-filter-control data-archive-native-select aria-hidden="true" tabindex="-1" hidden>
+                <option value="" <?= $filters['workflow'] === '' ? 'selected' : '' ?>>All process types</option>
+                <option value="purchase-request" <?= $filters['workflow'] === 'purchase-request' ? 'selected' : '' ?>>Purchase Request</option>
+                <option value="disbursement-voucher" <?= $filters['workflow'] === 'disbursement-voucher' ? 'selected' : '' ?>>Disbursement Voucher</option>
+            </select>
+            <button class="archive-filter-select-trigger" type="button" aria-labelledby="trash-type-filter-label trash-type-filter-value" aria-haspopup="listbox" aria-expanded="false" aria-controls="trash-type-filter-options" data-archive-select-trigger>
+                <span id="trash-type-filter-value" data-archive-select-value><?= $filters['workflow'] === 'purchase-request' ? 'Purchase Request' : ($filters['workflow'] === 'disbursement-voucher' ? 'Disbursement Voucher' : 'All process types') ?></span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+            <div class="archive-filter-select-menu" id="trash-type-filter-options" role="listbox" aria-labelledby="trash-type-filter-label" hidden data-archive-select-menu>
+                <div role="option" tabindex="-1" aria-selected="<?= $filters['workflow'] === '' ? 'true' : 'false' ?>" data-archive-select-option data-value="">All process types</div>
+                <div role="option" tabindex="-1" aria-selected="<?= $filters['workflow'] === 'purchase-request' ? 'true' : 'false' ?>" data-archive-select-option data-value="purchase-request">Purchase Request</div>
+                <div role="option" tabindex="-1" aria-selected="<?= $filters['workflow'] === 'disbursement-voucher' ? 'true' : 'false' ?>" data-archive-select-option data-value="disbursement-voucher">Disbursement Voucher</div>
+            </div>
+        </div>
+        <div class="archive-filter-select archive-page-size archive-filter-page-size trash-filter-select" data-archive-custom-select>
+            <span id="trash-page-size-label">Per page</span>
+            <select class="archive-native-filter-select" name="per_page" data-archive-page-size data-archive-native-select aria-hidden="true" tabindex="-1" hidden>
+                <?php foreach ($trashPageSizes as $pageSizeValue => $pageSizeLabel): ?>
+                    <option value="<?= $escape($pageSizeValue) ?>" <?= (string) $filters['per_page'] === (string) $pageSizeValue ? 'selected' : '' ?>><?= $escape($pageSizeLabel) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <button class="archive-filter-select-trigger" type="button" aria-labelledby="trash-page-size-label trash-page-size-value" aria-haspopup="listbox" aria-expanded="false" aria-controls="trash-page-size-options" data-archive-select-trigger>
+                <span id="trash-page-size-value" data-archive-select-value><?= $escape($trashPageSizes[(string) $filters['per_page']] ?? '10') ?></span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+            <div class="archive-filter-select-menu" id="trash-page-size-options" role="listbox" aria-labelledby="trash-page-size-label" hidden data-archive-select-menu>
+                <?php foreach ($trashPageSizes as $pageSizeValue => $pageSizeLabel): ?>
+                    <div role="option" tabindex="-1" aria-selected="<?= (string) $filters['per_page'] === (string) $pageSizeValue ? 'true' : 'false' ?>" data-archive-select-option data-value="<?= $escape($pageSizeValue) ?>"><?= $escape($pageSizeLabel) ?></div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <div class="archive-search-control" data-archive-search-control>
+            <input id="trash-process-search" type="search" name="process_number" value="<?= $escape($filters['process_number']) ?>" placeholder="Process number or project title" aria-label="Search by process number or project title in Trash" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="trash-search-suggestions" data-archive-process-search>
+            <button class="archive-search-toggle" type="submit" aria-label="Search Trash by process number or project title" data-archive-search-toggle>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 5 5"></path></svg>
+            </button>
+            <div class="archive-search-suggestions" id="trash-search-suggestions" role="listbox" aria-label="Trash search suggestions" hidden data-archive-search-suggestions></div>
+        </div>
         <noscript><button type="submit">Apply filters</button></noscript>
     </form>
 </section>
 
-<section class="table-panel trash-panel" aria-label="Deleted reports">
+<div class="archive-results" data-archive-results aria-live="polite" aria-busy="false">
+<section class="table-panel archive-panel trash-panel" aria-label="Deleted reports">
     <?php if ($trashItems === []): ?>
-        <div class="trash-empty-state"><span class="trash-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6m4-6v6M5 7l1 14h12l1-14M9 7V4h6v3"/></svg></span><h2><?= $hasFilters ? 'No matching reports' : 'Trash is empty' ?></h2><p><?= $hasFilters ? 'Try changing or clearing the selected filters.' : 'Deleted reports will appear here and can be restored for 30 days.' ?></p><?php if ($hasFilters): ?><a class="button secondary" href="/BTS/trash">Clear filters</a><?php else: ?><a class="button secondary" href="/BTS/archive">View Archived Reports</a><?php endif; ?></div>
+        <div class="trash-empty-state"><span class="trash-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6m4-6v6M5 7l1 14h12l1-14M9 7V4h6v3"/></svg></span><h2><?= $hasFilters ? 'No matching reports' : 'Trash is empty' ?></h2><p><?= $hasFilters ? 'Try changing or clearing the selected filters.' : 'Deleted reports will appear here and can be restored for 30 days.' ?></p><?php if ($hasFilters): ?><a class="button secondary" href="/BTS/trash">Clear filters</a><?php endif; ?></div>
     <?php else: ?>
         <div class="trash-table-wrap">
             <table class="archive-table trash-archive-table">
@@ -139,6 +206,32 @@ ob_start();
                 </tbody>
             </table>
         </div>
+        <?php if ($totalTrashItems > 0): ?>
+            <?php $firstTrashItem = (($trashPage - 1) * $trashPerPage) + 1; $lastTrashItem = min($firstTrashItem + count($trashItems) - 1, $totalTrashItems); ?>
+            <nav class="archive-pagination" aria-label="Trash pages">
+                <?php if ($trashPageCount > 1): ?>
+                    <div class="archive-pagination-controls">
+                        <?php if ($trashPage > 1): ?><a class="archive-page-link archive-page-direction" href="<?= $escape($trashPageUrl($trashPage - 1)) ?>" rel="prev"><span aria-hidden="true">‹</span> Back</a><?php else: ?><span class="archive-page-link archive-page-direction is-disabled" aria-disabled="true"><span aria-hidden="true">‹</span> Back</span><?php endif; ?>
+                        <div class="archive-page-numbers" aria-label="Page numbers">
+                            <?php foreach ($trashPageItems as $pageItem): ?>
+                                <?php if ($pageItem === '…'): ?><span class="archive-page-ellipsis" aria-hidden="true">…</span>
+                                <?php elseif ($pageItem === $trashPage): ?><span class="archive-page-link is-current" aria-current="page" aria-label="Page <?= $pageItem ?>"><?= $pageItem ?></span>
+                                <?php else: ?><a class="archive-page-link" href="<?= $escape($trashPageUrl($pageItem)) ?>" aria-label="Go to page <?= $pageItem ?>"><?= $pageItem ?></a><?php endif; ?>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php if ($trashPage < $trashPageCount): ?><a class="archive-page-link archive-page-direction" href="<?= $escape($trashPageUrl($trashPage + 1)) ?>" rel="next">Next <span aria-hidden="true">›</span></a><?php else: ?><span class="archive-page-link archive-page-direction is-disabled" aria-disabled="true">Next <span aria-hidden="true">›</span></span><?php endif; ?>
+                        <form class="archive-page-jump" method="get" action="/BTS/trash" data-archive-page-jump>
+                            <?php foreach (['recently_deleted', 'progress', 'workflow', 'per_page', 'process_number'] as $key): ?><input type="hidden" name="<?= $escape($key) ?>" value="<?= $escape($filters[$key] ?? '') ?>"><?php endforeach; ?>
+                            <label for="trash-page-number">Page</label>
+                            <input id="trash-page-number" type="number" name="page" min="1" max="<?= $trashPageCount ?>" value="<?= $trashPage ?>" required aria-label="Page number">
+                            <button type="submit">Go</button>
+                        </form>
+                    </div>
+                <?php endif; ?>
+                <span class="archive-pagination-summary">Showing <?= $firstTrashItem ?>–<?= $lastTrashItem ?> of <?= $totalTrashItems ?></span>
+            </nav>
+        <?php endif; ?>
     <?php endif; ?>
 </section>
+</div>
 <?php $content = ob_get_clean(); require __DIR__ . '/../layout/main.php'; ?>

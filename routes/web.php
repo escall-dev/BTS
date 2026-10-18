@@ -22,6 +22,7 @@ $router->add('GET', '/reports/process/{id}/complete', 'WorkflowController@comple
 
 $router->add('GET', '/archive', 'ArchiveController@index');
 $router->add('GET', '/trash', 'TrashController@index');
+$router->add('GET', '/trash/suggestions', 'TrashController@suggestions');
 $router->add('POST', '/trash/{processId}/restore', 'TrashController@restore');
 $router->add('POST', '/trash/{processId}/delete', 'TrashController@deletePermanently');
 $router->add('GET', '/archive/suggestions', 'ArchiveController@suggestions');

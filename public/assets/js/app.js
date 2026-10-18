@@ -1396,7 +1396,8 @@
                 parameters.delete('page');
                 parameters.set('q', query);
                 try {
-                    const response = await fetch(`/BTS/archive/suggestions?${parameters}`, {
+                    const suggestionsUrl = form.dataset.suggestionsUrl || '/BTS/archive/suggestions';
+                    const response = await fetch(`${suggestionsUrl}?${parameters}`, {
                         headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                         credentials: 'same-origin',
                         signal: suggestionController.signal,

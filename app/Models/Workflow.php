@@ -1710,25 +1710,11 @@ SQL;
         }
     }
 
-    public function trashItems(array $filters = []): array
+    public function trashItems(array $filters = [], int $limit = 10, int $offset = 0): array
     {
-        $conditions = [];
-        $recentlyDeleted = (string) ($filters['recently_deleted'] ?? '');
-        $intervals = ['24-hours' => '1 DAY', '7-days' => '7 DAY', '30-days' => '30 DAY'];
-        if (isset($intervals[$recentlyDeleted])) {
-            $conditions[] = 'p.deleted_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL ' . $intervals[$recentlyDeleted] . ')';
-        }
-
-        $progress = (string) ($filters['progress'] ?? '');
-        if ($progress === 'none') {
-            $conditions[] = 'COALESCE(step_progress.saved_count, 0) = 0';
-        } elseif ($progress === 'partial') {
-            $conditions[] = 'COALESCE(step_progress.saved_count, 0) > 0 AND step_progress.saved_count < step_progress.total_count';
-        } elseif ($progress === 'complete') {
-            $conditions[] = 'step_progress.total_count > 0 AND step_progress.saved_count >= step_progress.total_count';
-        }
-
-        $whereFilters = $conditions === [] ? '' : " AND " . implode("\n  AND ", $conditions);
+        [$conditions, $parameters] = $this->trashConditions($filters);
+        $limit = max(1, $limit);
+        $offset = max(0, $offset);
         $stmt = $this->db->prepare(<<<'SQL'
 SELECT
     p.id AS process_id,
@@ -1765,16 +1751,110 @@ LEFT JOIN (
 ) step_progress ON step_progress.process_id = p.id
 WHERE p.status = 'deleted'
   AND p.deleted_at IS NOT NULL
-SQL . $whereFilters . "\nORDER BY p.deleted_at DESC, p.id DESC");
+SQL . (count($conditions) > 2 ? " AND " . implode("\n  AND ", array_slice($conditions, 2)) : '') . "\nORDER BY p.deleted_at DESC, p.id DESC\nLIMIT {$limit} OFFSET {$offset}");
 
-        $stmt->execute();
+        $stmt->execute($parameters);
         return $stmt->fetchAll();
     }
 
-    public function trashCount(): int
+    public function trashCount(array $filters = []): int
     {
-        $stmt = $this->db->query("SELECT COUNT(*) FROM report_processes WHERE status = 'deleted' AND deleted_at IS NOT NULL");
+        [$conditions, $parameters] = $this->trashConditions($filters);
+        $stmt = $this->db->prepare("SELECT COUNT(*)
+            FROM report_processes p
+            LEFT JOIN (
+                SELECT process_id, COUNT(*) AS total_count, SUM(CASE WHEN is_saved = 1 THEN 1 ELSE 0 END) AS saved_count
+                FROM report_steps
+                GROUP BY process_id
+            ) step_progress ON step_progress.process_id = p.id
+            WHERE " . implode("\n              AND ", $conditions));
+        $stmt->execute($parameters);
         return (int) $stmt->fetchColumn();
+    }
+
+    public function trashSuggestions(array $filters, string $query, int $limit = 4): array
+    {
+        [$conditions, $parameters] = $this->trashConditions($filters, false);
+        $where = implode("\n  AND ", $conditions);
+        $limit = max(1, min(4, $limit));
+        $from = "FROM report_processes p
+            LEFT JOIN (
+                SELECT process_id, COUNT(*) AS total_count, SUM(CASE WHEN is_saved = 1 THEN 1 ELSE 0 END) AS saved_count
+                FROM report_steps
+                GROUP BY process_id
+            ) step_progress ON step_progress.process_id = p.id";
+        $projectTitle = "COALESCE(
+            NULLIF((SELECT bac_data.field_value FROM report_steps bac_step
+                    INNER JOIN report_step_data bac_data ON bac_data.report_step_id = bac_step.id
+                    WHERE bac_step.process_id = p.id AND bac_step.step_key = 'bac-reports'
+                      AND bac_data.field_key = 'PROJECTITLE' LIMIT 1), ''),
+            NULLIF((SELECT pr_data.field_value FROM report_steps pr_step
+                    INNER JOIN report_step_data pr_data ON pr_data.report_step_id = pr_step.id
+                    WHERE pr_step.process_id = p.id AND pr_step.step_key = 'purchase-request'
+                      AND pr_data.field_key = 'PRPURPOSE' LIMIT 1), ''),
+            'Not entered yet'
+        )";
+        $stmt = $this->db->prepare("SELECT candidate.value
+            FROM (
+                SELECT p.process_code AS value {$from} WHERE {$where}
+                UNION
+                SELECT {$projectTitle} AS value {$from} WHERE {$where}
+            ) candidate
+            WHERE candidate.value <> ''
+              AND LOWER(LEFT(candidate.value, CHAR_LENGTH(?))) = LOWER(?)
+            ORDER BY candidate.value
+            LIMIT {$limit}");
+        $stmt->execute([...$parameters, ...$parameters, $query, $query]);
+        return array_values(array_map('strval', $stmt->fetchAll(\PDO::FETCH_COLUMN)));
+    }
+
+    private function trashConditions(array $filters, bool $includeSearch = true): array
+    {
+        $conditions = ["p.status = 'deleted'", 'p.deleted_at IS NOT NULL'];
+        $parameters = [];
+        $intervals = ['24-hours' => '1 DAY', '7-days' => '7 DAY', '30-days' => '30 DAY'];
+        $recentlyDeleted = (string) ($filters['recently_deleted'] ?? '');
+        if (isset($intervals[$recentlyDeleted])) {
+            $conditions[] = 'p.deleted_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL ' . $intervals[$recentlyDeleted] . ')';
+        }
+
+        $workflow = (string) ($filters['workflow'] ?? '');
+        if (in_array($workflow, [self::PURCHASE_START, self::VOUCHER_START], true)) {
+            $conditions[] = 'p.start_type = ?';
+            $parameters[] = $workflow;
+        }
+
+        $progress = (string) ($filters['progress'] ?? '');
+        if ($progress === 'none') {
+            $conditions[] = 'COALESCE(step_progress.saved_count, 0) = 0';
+        } elseif ($progress === 'partial') {
+            $conditions[] = 'COALESCE(step_progress.saved_count, 0) > 0 AND step_progress.saved_count < step_progress.total_count';
+        } elseif ($progress === 'complete') {
+            $conditions[] = 'step_progress.total_count > 0 AND step_progress.saved_count >= step_progress.total_count';
+        }
+
+        $processNumber = $includeSearch ? trim((string) ($filters['process_number'] ?? '')) : '';
+        if ($processNumber !== '') {
+            $conditions[] = "(
+                LOWER(p.process_code) LIKE ?
+                OR EXISTS (
+                    SELECT 1 FROM report_steps title_step
+                    INNER JOIN report_step_data title_data ON title_data.report_step_id = title_step.id
+                    WHERE title_step.process_id = p.id AND title_step.step_key = 'bac-reports'
+                      AND title_data.field_key = 'PROJECTITLE' AND LOWER(title_data.field_value) LIKE ?
+                )
+                OR EXISTS (
+                    SELECT 1 FROM report_steps purpose_step
+                    INNER JOIN report_step_data purpose_data ON purpose_data.report_step_id = purpose_step.id
+                    WHERE purpose_step.process_id = p.id AND purpose_step.step_key = 'purchase-request'
+                      AND purpose_data.field_key = 'PRPURPOSE' AND LOWER(purpose_data.field_value) LIKE ?
+                )
+            )";
+            $searchTerm = '%' . strtolower($processNumber) . '%';
+            array_push($parameters, $searchTerm, $searchTerm, $searchTerm);
+        }
+
+        return [$conditions, $parameters];
     }
 
     public function restoreDeletedProcess(int $processId): bool
