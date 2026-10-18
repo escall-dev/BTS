@@ -4474,8 +4474,8 @@ input[type="color"] { padding: 4px; cursor: pointer; }
 @media (min-width: 981px) {
     .app-shell {
         transition-property: grid-template-columns;
-        transition-duration: 180ms;
-        transition-timing-function: ease-out;
+        transition-duration: 280ms;
+        transition-timing-function: cubic-bezier(.22, .61, .36, 1);
     }
     html.sidebar-is-collapsed .app-shell {
         grid-template-columns: 88px minmax(0, 1fr);
@@ -4505,14 +4505,12 @@ input[type="color"] { padding: 4px; cursor: pointer; }
     html.sidebar-is-collapsed .sidebar .brand-mark {
         transform: scale(1.15);
     }
-    html.sidebar-is-collapsed .brand-title,
-    html.sidebar-is-collapsed .sidebar-section-label,
-    html.sidebar-is-collapsed .nav-label,
     html.sidebar-is-collapsed .account-meta {
         display: none;
     }
     html.sidebar-is-collapsed .side-nav a {
         justify-content: center;
+        gap: 0;
         min-height: 46px;
         padding: 7px;
     }
@@ -4536,6 +4534,72 @@ input[type="color"] { padding: 4px; cursor: pointer; }
         content: "\2192";
         font-size: 18px;
         line-height: 1;
+    }
+}
+
+@media (min-width: 981px) {
+    .sidebar,
+    .sidebar .brand,
+    .sidebar .brand-logo,
+    .side-nav a,
+    .sidebar .sidebar-logout {
+        transition-duration: 280ms;
+        transition-timing-function: cubic-bezier(.22, .61, .36, 1);
+    }
+    .sidebar { transition-property: padding; }
+    .sidebar .brand { transition-property: min-height, margin, padding, gap; }
+    .sidebar .brand-logo { transition-property: width, height; }
+    .side-nav a { transition-property: gap, min-height, padding, background-color, color, box-shadow, transform; }
+    .sidebar .sidebar-logout { transition-property: width, gap, border-radius, background-color, border-color, color, transform; }
+    .nav-label {
+        display: inline-block;
+        max-width: 180px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        opacity: 1;
+        transform: translateX(0);
+        transition: max-width 220ms cubic-bezier(.22, .61, .36, 1), opacity 160ms ease, transform 220ms ease;
+    }
+    html.sidebar-is-collapsed .nav-label {
+        max-width: 0;
+        opacity: 0;
+        transform: translateX(-6px);
+        pointer-events: none;
+    }
+    .sidebar-logout-label {
+        display: inline-block;
+        max-width: 90px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        opacity: 1;
+        transform: translateX(0);
+        transition: max-width 220ms cubic-bezier(.22, .61, .36, 1), opacity 160ms ease, transform 220ms ease;
+    }
+    html.sidebar-is-collapsed .sidebar-logout-label {
+        max-width: 0;
+        opacity: 0;
+        transform: translateX(-6px);
+        pointer-events: none;
+    }
+    html:not(.sidebar-is-collapsed) .sidebar-logout-label { transition-delay: 65ms; }
+    html:not(.sidebar-is-collapsed) .nav-label { transition-delay: 65ms; }
+    .sidebar .brand-title,
+    .sidebar .sidebar-section-label {
+        max-height: 48px;
+        overflow: hidden;
+        opacity: 1;
+        transform: translateY(0);
+        transition: max-height 220ms ease, opacity 160ms ease, transform 200ms ease, margin 220ms ease;
+    }
+    html.sidebar-is-collapsed .sidebar .brand-title,
+    html.sidebar-is-collapsed .sidebar .sidebar-section-label {
+        max-height: 0;
+        margin-bottom: 0;
+        opacity: 0;
+        transform: translateY(4px);
+        pointer-events: none;
     }
 }
 
@@ -4808,6 +4872,7 @@ html.sidebar-is-collapsed .sidebar .sidebar-logout {
     height: 44px;
     min-height: 44px;
     justify-content: center;
+    gap: 0;
     padding: 5px;
     border-radius: 50%;
 }
@@ -4816,7 +4881,6 @@ html.sidebar-is-collapsed .sidebar .sidebar-logout-icon {
     height: 32px;
     flex-basis: 32px;
 }
-html.sidebar-is-collapsed .sidebar .sidebar-logout-label { display: none; }
 html.sidebar-is-collapsed .sidebar .sidebar-logout::before { content: none; }
 @media (prefers-reduced-motion: reduce) {
     .sidebar .sidebar-logout { transition: none; }
