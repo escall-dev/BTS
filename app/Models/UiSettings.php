@@ -145,15 +145,22 @@ class UiSettings extends Model
     }
     private function validateLogo(?array $file): array
     {
-        if ($file === null || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) return [];
-        if ((int) ($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) return ['error' => 'The logo upload did not complete successfully.'];
-        if ((int) ($file['size'] ?? 0) > 2097152) return ['error' => 'The logo must be 2 MB or smaller.'];
+        $uploadError = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
+        if ($file === null || $uploadError === UPLOAD_ERR_NO_FILE) return [];
+        if (in_array($uploadError, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) return ['error' => 'The logo must be 10 MB or smaller.'];
+        if ($uploadError !== UPLOAD_ERR_OK) return ['error' => 'The logo upload did not complete successfully.'];
         $tmp = (string) ($file['tmp_name'] ?? '');
         if ($tmp === '' || !is_uploaded_file($tmp)) return ['error' => 'The uploaded logo could not be verified.'];
+        $size = filesize($tmp);
+        if ($size === false) return ['error' => 'The uploaded logo size could not be verified.'];
+        if ($size > 10 * 1024 * 1024) return ['error' => 'The logo must be 10 MB or smaller.'];
+        $originalExtension = strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
+        if (!in_array($originalExtension, ['jpg', 'jpeg', 'png'], true)) return ['error' => 'Upload a PNG, JPG, or JPEG image.'];
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($tmp);
-        $extensions = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp'];
-        if (!isset($extensions[$mime]) || @getimagesize($tmp) === false) return ['error' => 'Upload a valid PNG, JPEG, or WebP image.'];
-        return ['tmp_name' => $tmp, 'extension' => $extensions[$mime]];
+        $image = @getimagesize($tmp);
+        $extensions = ['image/jpeg' => ['jpg', IMAGETYPE_JPEG], 'image/png' => ['png', IMAGETYPE_PNG]];
+        if (!isset($extensions[$mime]) || $image === false || $image[2] !== $extensions[$mime][1]) return ['error' => 'Upload a valid PNG, JPG, or JPEG image.'];
+        return ['tmp_name' => $tmp, 'extension' => $extensions[$mime][0]];
     }
 
     private function removeOldLogo(string $oldPath, string $newPath): void

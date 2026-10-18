@@ -99,6 +99,11 @@ $sidebarIcon = static function (string $icon): string {
         </main>
     <?php endif; ?>
 
+    <?php if ($active === 'auth'): ?>
+        <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/SplitText.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
+    <?php endif; ?>
     <script src="/BTS/assets/js/app.js?v=<?= filemtime(__DIR__ . '/../../../public/assets/js/app.js') ?>"></script>
 </body>
 </html>

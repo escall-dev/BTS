@@ -474,6 +474,99 @@
             }
         });
     }
+    function setupLoginBrandingAnimation() {
+        const headings = Array.from(document.querySelectorAll('[data-brand-headline]'));
+        const supportingLine = document.querySelector('.auth-welcome');
+        if (!headings.length || !supportingLine || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            return;
+        }
+
+        if (!window.gsap || !window.SplitText || !window.ScrollTrigger) {
+            return;
+        }
+
+        window.gsap.registerPlugin(window.SplitText, window.ScrollTrigger);
+        const gsap = window.gsap;
+        const entranceTimeline = gsap.timeline();
+        const animations = headings.map((heading) => {
+            const split = window.SplitText.create(heading, {
+                type: 'chars,words',
+                charsClass: 'char',
+                wordsClass: 'word',
+                aria: 'auto',
+            });
+            if (!split.chars.length) {
+                split.revert();
+                return null;
+            }
+
+            heading.setAttribute('aria-label', heading.textContent.trim());
+            heading.classList.add('is-animating');
+            const fromVars = {
+                opacity: 0,
+                y: 46,
+                rotationX: -95,
+                transformPerspective: 600,
+                transformOrigin: '50% 100%',
+            };
+            const entranceVars = {
+                opacity: 1,
+                y: 0,
+                rotationX: 0,
+                duration: 1.3,
+                stagger: { each: 0.035, from: 'start' },
+                ease: 'expo.out',
+                overwrite: true,
+            };
+            const playEntrance = () => {
+                gsap.killTweensOf(split.chars);
+                gsap.fromTo(split.chars, fromVars, entranceVars);
+            };
+            const playExit = () => {
+                gsap.killTweensOf(split.chars);
+                gsap.to(split.chars, {
+                    opacity: 0,
+                    rotationX: 70,
+                    y: -26,
+                    duration: 0.35,
+                    stagger: 0.012,
+                    ease: 'power2.in',
+                    overwrite: true,
+                });
+            };
+
+            entranceTimeline.fromTo(split.chars, fromVars, entranceVars);
+            return {
+                split,
+                scrollTrigger: window.ScrollTrigger.create({
+                    trigger: heading,
+                    start: 'top bottom',
+                    end: 'bottom top',
+                    onLeave: playExit,
+                    onEnterBack: () => playEntrance(),
+                }),
+            };
+        }).filter(Boolean);
+
+        gsap.fromTo(supportingLine, { opacity: 0, y: 10 }, {
+            opacity: 1,
+            y: 0,
+            duration: 0.7,
+            delay: Math.max(0, entranceTimeline.duration() - 0.7),
+            ease: 'power2.out',
+            overwrite: true,
+        });
+
+        window.addEventListener('pagehide', () => {
+            animations.forEach(({ split, scrollTrigger }) => {
+                scrollTrigger.kill();
+                gsap.killTweensOf(split.chars);
+                split.revert();
+            });
+            gsap.killTweensOf(supportingLine);
+        }, { once: true });
+    }
+
     function setupArchiveDateRange() {
         const form = document.querySelector('[data-archive-filter-form]');
         const picker = form?.querySelector('[data-date-range-picker]');
@@ -1037,6 +1130,7 @@
     }
 
     onReady(() => {
+        setupLoginBrandingAnimation();
         setupHoverNotes();
         setupStartModal();
         setupSystemInputSaveState();
@@ -1181,6 +1275,76 @@
 
         const uiForm = document.querySelector('[data-ui-settings-form]');
         if (uiForm) {
+            const logoInput = uiForm.querySelector('[data-logo-upload]');
+            const logoPreview = uiForm.querySelector('[data-logo-preview]');
+            const logoPreviewStatus = uiForm.querySelector('[data-logo-preview-status]');
+            const clearLogoSelection = uiForm.querySelector('[data-logo-clear-selection]');
+            if (logoInput && logoPreview && logoPreviewStatus && clearLogoSelection) {
+                const originalLogoPreview = logoPreview.innerHTML;
+                let logoPreviewUrl = '';
+                const revokeLogoPreviewUrl = () => {
+                    if (logoPreviewUrl) {
+                        URL.revokeObjectURL(logoPreviewUrl);
+                        logoPreviewUrl = '';
+                    }
+                };
+                const restoreLogoPreview = () => {
+                    revokeLogoPreviewUrl();
+                    logoPreview.innerHTML = originalLogoPreview;
+                    logoPreview.classList.remove('is-previewing');
+                    clearLogoSelection.hidden = true;
+                };
+
+                logoInput.addEventListener('change', () => {
+                    const file = logoInput.files?.[0];
+                    if (!file) {
+                        restoreLogoPreview();
+                        logoPreviewStatus.textContent = 'Choose a PNG, JPG, or JPEG to preview it before saving.';
+                        return;
+                    }
+
+                    clearLogoSelection.hidden = false;
+                    const extension = file.name.split('.').pop()?.toLowerCase();
+                    const acceptedTypes = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png' };
+                    if (!acceptedTypes[extension] || (file.type && file.type !== acceptedTypes[extension])) {
+                        restoreLogoPreview();
+                        clearLogoSelection.hidden = false;
+                        logoPreviewStatus.textContent = 'Select a PNG, JPG, or JPEG image to see its preview.';
+                        return;
+                    }
+                    if (file.size > 10 * 1024 * 1024) {
+                        restoreLogoPreview();
+                        clearLogoSelection.hidden = false;
+                        logoPreviewStatus.textContent = 'This file is larger than 10 MB. Choose a smaller image.';
+                        return;
+                    }
+
+                    revokeLogoPreviewUrl();
+                    logoPreviewUrl = URL.createObjectURL(file);
+                    const image = document.createElement('img');
+                    image.alt = 'Selected system logo preview';
+                    image.addEventListener('load', () => {
+                        logoPreviewStatus.textContent = `${file.name} preview. Save System UI to apply it.`;
+                    }, { once: true });
+                    image.addEventListener('error', () => {
+                        restoreLogoPreview();
+                        clearLogoSelection.hidden = false;
+                        logoPreviewStatus.textContent = 'This image could not be previewed. Choose a valid PNG, JPG, or JPEG.';
+                    }, { once: true });
+                    image.src = logoPreviewUrl;
+                    logoPreview.replaceChildren(image);
+                    logoPreview.classList.add('is-previewing');
+                });
+
+                clearLogoSelection.addEventListener('click', () => {
+                    logoInput.value = '';
+                    restoreLogoPreview();
+                    logoPreviewStatus.textContent = 'Selection cleared. The saved logo is still in use.';
+                });
+
+                window.addEventListener('pagehide', revokeLogoPreviewUrl, { once: true });
+            }
+
             const preview = uiForm.querySelector('[data-theme-preview]');
             const primary = uiForm.querySelector('[data-ui-primary]');
             const accent = uiForm.querySelector('[data-ui-accent]');

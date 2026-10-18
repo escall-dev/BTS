@@ -5,9 +5,18 @@ $logoIsValid = preg_match('/^uploads\/branding\/system-logo-[a-f0-9]{16}\.(?:png
 ob_start();
 ?>
 <div class="auth-stage">
-    <div class="auth-orbit auth-orbit-top" aria-hidden="true"><span></span><span></span><span></span></div>
-    <div class="auth-orbit auth-orbit-bottom" aria-hidden="true"><span></span><span></span><span></span></div>
+    <aside class="auth-brand auth-brand--transactions" aria-label="Transaction accountability">
+        <p class="auth-brand__eyebrow">Treasury • Accountability</p>
+        <h2 class="auth-brand__headline" data-brand-headline>
+            <span>Make Every</span>
+            <span>Transaction</span>
+            <strong>Accountable.</strong>
+        </h2>
+        <span class="auth-brand__rule" aria-hidden="true"></span>
+    </aside>
     <section class="auth-panel" aria-labelledby="login-title">
+        <div class="auth-orbit auth-orbit-top" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="auth-orbit auth-orbit-bottom" aria-hidden="true"><span></span><span></span><span></span></div>
         <header class="auth-header">
             <div class="auth-logo">
                 <?php if ($logoIsValid): ?>
@@ -38,7 +47,17 @@ ob_start();
             <p class="auth-version"><?= htmlspecialchars($appVersion, ENT_QUOTES, 'UTF-8') ?></p>
         <?php endif; ?>
     </section>
+    <aside class="auth-brand auth-brand--process" aria-label="Making every process possible">
+        <p class="auth-brand__eyebrow">Treasury • Possibility</p>
+        <h2 class="auth-brand__headline" data-brand-headline>
+            <span>Make Every</span>
+            <span>Process</span>
+            <strong>Possible.</strong>
+        </h2>
+        <span class="auth-brand__rule" aria-hidden="true"></span>
+    </aside>
 </div>
 <?php
 $content = ob_get_clean();
+$active = 'auth';
 require __DIR__ . '/../layout/main.php';

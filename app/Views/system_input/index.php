@@ -165,12 +165,18 @@ $sidebarTitle = (string) ($uiSettings['UI_APP_TITLE'] ?? 'BrgyTreasurySystem');
         <?php endif; ?>
     </section>
     <section class="system-input-section" id="system-ui-section-logo">
-        <div class="system-input-section-heading"><h2>System Logo</h2><p>PNG, JPEG, or WebP. Maximum file size: 2 MB.</p></div>
+        <div class="system-input-section-heading"><h2>System Logo</h2><p>PNG, JPG, or JPEG images. Maximum file size: 10 MB.</p></div>
         <div class="logo-setting-row">
-            <div class="logo-preview">
+            <div class="logo-preview" data-logo-preview>
                 <?php if ($logoPath !== ''): ?><img src="/BTS/<?= htmlspecialchars($logoPath) ?>" alt="Current system logo"><?php else: ?><span class="brand-mark" aria-hidden="true"><span></span><span></span></span><?php endif; ?>
             </div>
-            <label>Upload New Logo<input type="file" name="ui_logo" accept="image/png,image/jpeg,image/webp"></label>
+            <div class="logo-upload-control">
+                <label>Upload New Logo<input type="file" name="ui_logo" accept="image/png,.png,image/jpeg,.jpg,.jpeg" data-logo-upload></label>
+                <div class="logo-upload-meta">
+                    <small data-logo-preview-status role="status" aria-live="polite">Choose a PNG, JPG, or JPEG to preview it before saving.</small>
+                    <button type="button" class="secondary" data-logo-clear-selection hidden>Clear selection</button>
+                </div>
+            </div>
             <label class="sidebar-title-setting">Sidebar Title<input type="text" name="ui[app_title]" value="<?= htmlspecialchars($sidebarTitle) ?>" minlength="2" maxlength="60" required><small>Displayed below the logo in the sidebar.</small><?php if (!empty($errors['app_title'])): ?><small class="field-error"><?= htmlspecialchars($errors['app_title']) ?></small><?php endif; ?></label>
             <?php if ($logoPath !== ''): ?><label class="check-option"><input type="checkbox" name="ui[reset_logo]" value="1"> Restore default logo</label><?php endif; ?>
         </div>
