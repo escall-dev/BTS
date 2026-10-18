@@ -856,14 +856,13 @@ class Workflow extends Model
                 INNER JOIN report_steps s ON s.id = d.report_step_id
                 WHERE d.field_key = 'CHECKNO'
                   AND s.step_key = 'disbursement-voucher'";
-        $params = [];
         if ($ignoreStepId !== null) {
             $sql .= ' AND d.report_step_id <> ?';
             $params[] = $ignoreStepId;
         }
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
+        $stmt->execute();
 
         $used = [];
         foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $value) {
@@ -1711,9 +1710,26 @@ SQL;
         }
     }
 
-    public function trashItems(): array
+    public function trashItems(array $filters = []): array
     {
-        $stmt = $this->db->query(<<<'SQL'
+        $conditions = [];
+        $recentlyDeleted = (string) ($filters['recently_deleted'] ?? '');
+        $intervals = ['24-hours' => '1 DAY', '7-days' => '7 DAY', '30-days' => '30 DAY'];
+        if (isset($intervals[$recentlyDeleted])) {
+            $conditions[] = 'p.deleted_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL ' . $intervals[$recentlyDeleted] . ')';
+        }
+
+        $progress = (string) ($filters['progress'] ?? '');
+        if ($progress === 'none') {
+            $conditions[] = 'COALESCE(step_progress.saved_count, 0) = 0';
+        } elseif ($progress === 'partial') {
+            $conditions[] = 'COALESCE(step_progress.saved_count, 0) > 0 AND step_progress.saved_count < step_progress.total_count';
+        } elseif ($progress === 'complete') {
+            $conditions[] = 'step_progress.total_count > 0 AND step_progress.saved_count >= step_progress.total_count';
+        }
+
+        $whereFilters = $conditions === [] ? '' : " AND " . implode("\n  AND ", $conditions);
+        $stmt = $this->db->prepare(<<<'SQL'
 SELECT
     p.id AS process_id,
     p.process_code,
@@ -1722,7 +1738,8 @@ SELECT
     p.deleted_at,
     DATE_ADD(p.deleted_at, INTERVAL 30 DAY) AS expires_at,
     p.completed_at,
-    (SELECT COUNT(*) FROM report_steps saved_step WHERE saved_step.process_id = p.id AND saved_step.is_saved = 1) AS saved_count,
+    COALESCE(step_progress.saved_count, 0) AS saved_count,
+    COALESCE(step_progress.total_count, 0) AS total_count,
     COALESCE(
         NULLIF((SELECT bac_data.field_value
                 FROM report_steps bac_step
@@ -1741,12 +1758,23 @@ SELECT
         'Not entered yet'
     ) AS project_title
 FROM report_processes p
+LEFT JOIN (
+    SELECT process_id, COUNT(*) AS total_count, SUM(CASE WHEN is_saved = 1 THEN 1 ELSE 0 END) AS saved_count
+    FROM report_steps
+    GROUP BY process_id
+) step_progress ON step_progress.process_id = p.id
 WHERE p.status = 'deleted'
   AND p.deleted_at IS NOT NULL
-ORDER BY p.deleted_at DESC, p.id DESC
-SQL);
+SQL . $whereFilters . "\nORDER BY p.deleted_at DESC, p.id DESC");
 
+        $stmt->execute();
         return $stmt->fetchAll();
+    }
+
+    public function trashCount(): int
+    {
+        $stmt = $this->db->query("SELECT COUNT(*) FROM report_processes WHERE status = 'deleted' AND deleted_at IS NOT NULL");
+        return (int) $stmt->fetchColumn();
     }
 
     public function restoreDeletedProcess(int $processId): bool
