@@ -57,7 +57,8 @@ $logoPath = (string) ($uiSettings['UI_LOGO_PATH'] ?? '');
 $sidebarTitle = (string) ($uiSettings['UI_APP_TITLE'] ?? 'BrgyTreasurySystem');
 ?>
 <?php if (($savedSection ?? '') !== ''): ?>
-    <p class="notice success"><?= $savedSection === 'ui' ? 'System appearance saved.' : 'Report data saved.' ?></p>
+    <?php if ($savedSection === 'ui'): ?><span data-success-modal data-success-title="System UI saved" data-success-message="Your system appearance, colors, and branding changes have been saved." data-success-label="Done" data-success-secondary-label="Open Report Data" data-success-secondary-href="/BTS/system-input?tab=report-data" hidden></span>
+    <?php else: ?><span data-success-modal data-success-title="Report data saved" data-success-message="Your report data and tax type changes have been saved." data-success-label="Done" data-success-secondary-label="Open System UI" data-success-secondary-href="/BTS/system-input?tab=system-ui" hidden></span><?php endif; ?>
 <?php endif; ?>
 <?php if ($errors !== []): ?><p class="notice error">Please correct the highlighted settings.</p><?php endif; ?>
 
@@ -71,7 +72,7 @@ $sidebarTitle = (string) ($uiSettings['UI_APP_TITLE'] ?? 'BrgyTreasurySystem');
     <?php foreach ($groups as $group): ?><a href="#report-section-<?= htmlspecialchars($group['anchor']) ?>"><?= htmlspecialchars($group['title']) ?></a><?php endforeach; ?>
     <a href="#report-section-tax-management">Tax Management</a>
 </nav>
-<form class="table-panel system-input-form" method="post" action="/BTS/system-input" data-system-input-form>
+<form class="table-panel system-input-form" method="post" action="/BTS/system-input" data-system-input-form data-confirm-submit="Save the changes to Report Data?" data-confirm-title="Confirm Report Data changes" data-confirm-note="These settings will be used in future reports." data-confirm-label="Save Report Data">
     <input type="hidden" name="settings_section" value="report-data">
     <div class="system-input-sections">
         <?php foreach ($groups as $group): ?>
@@ -95,7 +96,7 @@ $sidebarTitle = (string) ($uiSettings['UI_APP_TITLE'] ?? 'BrgyTreasurySystem');
                             <input type="text" name="tax_types[<?= (int) $index ?>][name]" value="<?= htmlspecialchars((string) ($taxType['name'] ?? '')) ?>" maxlength="80" required>
                             <?php if (!empty($errors['tax_types.' . $index . '.name'])): ?><small class="field-error"><?= htmlspecialchars($errors['tax_types.' . $index . '.name']) ?></small><?php endif; ?>
                         </label>
-                        <button type="button" class="secondary compact" data-remove-tax-type>Delete</button>
+                        <button type="button" class="secondary compact" data-remove-tax-type data-confirm-action data-confirm-title="Remove this tax type?" data-confirm-message="This tax type will be removed from the Disbursement Voucher options." data-confirm-note="The change will take effect after you save Report Data." data-confirm-label="Remove tax type" data-confirm-danger="true">Delete</button>
                     </div>
                 <?php endforeach; ?>
             </div>
@@ -106,7 +107,7 @@ $sidebarTitle = (string) ($uiSettings['UI_APP_TITLE'] ?? 'BrgyTreasurySystem');
         </section>
     </div>
     <div class="form-actions system-input-actions">
-        <p class="system-input-save-status" data-save-status role="status" aria-live="polite">No unsaved changes</p>
+        <p class="system-input-save-status" data-save-status role="status" aria-live="polite"><span data-save-status-label>No unsaved changes</span><span class="unsaved-change-count" data-unsaved-count-badge hidden><strong data-unsaved-count>0</strong> <span data-unsaved-count-label>unsaved changes</span></span></p>
         <button type="submit" data-save-button>Save Report Data</button>
     </div>
 </form>
@@ -116,7 +117,7 @@ $sidebarTitle = (string) ($uiSettings['UI_APP_TITLE'] ?? 'BrgyTreasurySystem');
     <a href="#system-ui-section-report-colors">Generated Report Cell Colors</a>
     <a href="#system-ui-section-logo">System Logo</a>
 </nav>
-<form class="table-panel system-ui-form" method="post" action="/BTS/system-input" enctype="multipart/form-data" data-ui-settings-form data-system-input-form>
+<form class="table-panel system-ui-form" method="post" action="/BTS/system-input" enctype="multipart/form-data" data-ui-settings-form data-system-input-form data-confirm-submit="Save the changes to System UI?" data-confirm-title="Confirm System UI changes" data-confirm-note="The selected appearance and branding will be applied across the system." data-confirm-label="Save System UI">
     <input type="hidden" name="settings_section" value="system-ui">
     <section class="system-input-section" id="system-ui-section-theme">
         <div class="system-input-section-heading"><h2>Theme Palette</h2><p>Choose a preset or create a custom primary and accent combination.</p></div>
@@ -184,7 +185,7 @@ $sidebarTitle = (string) ($uiSettings['UI_APP_TITLE'] ?? 'BrgyTreasurySystem');
     </section>
 
     <div class="form-actions system-input-actions">
-        <p class="system-input-save-status" data-save-status role="status" aria-live="polite">No unsaved changes</p>
+        <p class="system-input-save-status" data-save-status role="status" aria-live="polite"><span data-save-status-label>No unsaved changes</span><span class="unsaved-change-count" data-unsaved-count-badge hidden><strong data-unsaved-count>0</strong> <span data-unsaved-count-label>unsaved changes</span></span></p>
         <button type="submit" data-save-button>Save System UI</button>
     </div>
 </form>

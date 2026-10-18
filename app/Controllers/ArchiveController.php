@@ -12,8 +12,9 @@ class ArchiveController extends Controller
     public function index(): void
     {
         $this->requireLogin();
-        [$filters, $filterErrors] = $this->archiveFilters($_GET);
         $workflow = new Workflow();
+        $workflow->purgeExpiredTrash();
+        [$filters, $filterErrors] = $this->archiveFilters($_GET);
         $totalArchives = $filterErrors === [] ? $workflow->archiveCount($filters) : 0;
         $perPage = $filters['per_page'] === 'all' ? max(1, $totalArchives) : (int) $filters['per_page'];
         $pageCount = max(1, (int) ceil($totalArchives / $perPage));
@@ -30,6 +31,7 @@ class ArchiveController extends Controller
             'archivePageCount' => $pageCount,
             'filterErrors' => $filterErrors,
             'deleted' => ($_GET['deleted'] ?? '') === '1',
+            'deleteNotFound' => ($_GET['delete_not_found'] ?? '') === '1',
         ]);
     }
 
@@ -121,8 +123,8 @@ class ArchiveController extends Controller
     {
         $this->requireLogin();
 
-        (new Workflow())->softDeleteProcess((int) $processId);
-        $this->redirect('/BTS/archive?deleted=1');
+        $deleted = (new Workflow())->softDeleteProcess((int) $processId);
+        $this->redirect('/BTS/archive?' . ($deleted ? 'deleted=1' : 'delete_not_found=1'));
     }
 
     private function archiveFilters(array $input): array

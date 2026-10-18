@@ -5,6 +5,8 @@
 /database/*
 !/database/.gitkeep
 *.sql
+!/database/migrations/
+!/database/migrations/*.sql
 
 # Runtime storage and generated outputs
 /storage/generated_reports/

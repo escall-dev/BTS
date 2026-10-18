@@ -1686,16 +1686,16 @@ SQL;
         $stmt->execute([$processId, 'deleted']);
     }
 
-    public function softDeleteProcess(int $processId): void
+    public function softDeleteProcess(int $processId): bool
     {
         $process = $this->getProcess($processId);
         if (!$process) {
-            return;
+            return false;
         }
 
         $this->db->beginTransaction();
         try {
-            $processStmt = $this->db->prepare("UPDATE report_processes SET status = 'deleted' WHERE id = ?");
+            $processStmt = $this->db->prepare("UPDATE report_processes SET deleted_from_status = status, status = 'deleted', deleted_at = CURRENT_TIMESTAMP WHERE id = ?");
             $processStmt->execute([$processId]);
 
             $countStmt = $this->db->prepare('SELECT COUNT(*) FROM report_steps WHERE process_id = ?');
@@ -1704,10 +1704,127 @@ SQL;
             $this->upsertArchiveCheckpoint($processId, $process['process_code'], $process['start_type'], $reportCount, 'deleted');
 
             $this->db->commit();
+            return true;
         } catch (\Throwable $exception) {
             $this->db->rollBack();
             throw $exception;
         }
+    }
+
+    public function trashItems(): array
+    {
+        $stmt = $this->db->query(<<<'SQL'
+SELECT
+    p.id AS process_id,
+    p.process_code,
+    p.start_type,
+    p.created_at,
+    p.deleted_at,
+    DATE_ADD(p.deleted_at, INTERVAL 30 DAY) AS expires_at,
+    p.completed_at,
+    (SELECT COUNT(*) FROM report_steps saved_step WHERE saved_step.process_id = p.id AND saved_step.is_saved = 1) AS saved_count,
+    COALESCE(
+        NULLIF((SELECT bac_data.field_value
+                FROM report_steps bac_step
+                INNER JOIN report_step_data bac_data ON bac_data.report_step_id = bac_step.id
+                WHERE bac_step.process_id = p.id
+                  AND bac_step.step_key = 'bac-reports'
+                  AND bac_data.field_key = 'PROJECTITLE'
+                LIMIT 1), ''),
+        NULLIF((SELECT pr_data.field_value
+                FROM report_steps pr_step
+                INNER JOIN report_step_data pr_data ON pr_data.report_step_id = pr_step.id
+                WHERE pr_step.process_id = p.id
+                  AND pr_step.step_key = 'purchase-request'
+                  AND pr_data.field_key = 'PRPURPOSE'
+                LIMIT 1), ''),
+        'Not entered yet'
+    ) AS project_title
+FROM report_processes p
+WHERE p.status = 'deleted'
+  AND p.deleted_at IS NOT NULL
+ORDER BY p.deleted_at DESC, p.id DESC
+SQL);
+
+        return $stmt->fetchAll();
+    }
+
+    public function restoreDeletedProcess(int $processId): bool
+    {
+        $this->db->beginTransaction();
+        try {
+            $processStmt = $this->db->prepare("SELECT id, deleted_from_status FROM report_processes WHERE id = ? AND status = 'deleted' AND deleted_at > DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 30 DAY) FOR UPDATE");
+            $processStmt->execute([$processId]);
+            $process = $processStmt->fetch();
+            if (!$process) {
+                $this->db->commit();
+                return false;
+            }
+
+            $status = in_array($process['deleted_from_status'], ['in_progress', 'completed'], true) ? $process['deleted_from_status'] : 'in_progress';
+            $restore = $this->db->prepare("UPDATE report_processes SET status = ?, deleted_at = NULL, deleted_from_status = NULL WHERE id = ? AND status = 'deleted'");
+            $restore->execute([$status, $processId]);
+            $archive = $this->db->prepare("UPDATE archives SET status = ?, archived_at = CURRENT_TIMESTAMP WHERE process_id = ? AND status = 'deleted'");
+            $archive->execute([$status, $processId]);
+            $this->db->commit();
+            return true;
+        } catch (\Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $exception;
+        }
+    }
+
+    public function permanentlyDeleteProcess(int $processId): bool
+    {
+        $this->db->beginTransaction();
+        try {
+            $processStmt = $this->db->prepare("SELECT id FROM report_processes WHERE id = ? AND status = 'deleted' FOR UPDATE");
+            $processStmt->execute([$processId]);
+            if (!$processStmt->fetchColumn()) {
+                $this->db->commit();
+                return false;
+            }
+
+            $this->deleteProcessRows($processId);
+            $this->db->commit();
+            return true;
+        } catch (\Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $exception;
+        }
+    }
+
+    public function purgeExpiredTrash(): int
+    {
+        $this->db->beginTransaction();
+        try {
+            $stmt = $this->db->query("SELECT id FROM report_processes WHERE status = 'deleted' AND deleted_at IS NOT NULL AND deleted_at <= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 30 DAY) FOR UPDATE");
+            $processIds = array_map('intval', $stmt->fetchAll(\PDO::FETCH_COLUMN));
+            foreach ($processIds as $processId) {
+                $this->deleteProcessRows($processId);
+            }
+            $this->db->commit();
+            return count($processIds);
+        } catch (\Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $exception;
+        }
+    }
+
+    private function deleteProcessRows(int $processId): void
+    {
+        $items = $this->db->prepare('DELETE FROM report_items WHERE process_id = ?');
+        $items->execute([$processId]);
+
+        $stepData = $this->db->prepare('DELETE d FROM report_step_data AS d INNER JOIN report_steps AS s ON s.id = d.report_step_id WHERE s.process_id = ?');
+        $stepData->execute([$processId]);
+
+        $archive = $this->db->prepare('DELETE FROM archives WHERE process_id = ?');
+        $archive->execute([$processId]);
+        $steps = $this->db->prepare('DELETE FROM report_steps WHERE process_id = ?');
+        $steps->execute([$processId]);
+        $process = $this->db->prepare("DELETE FROM report_processes WHERE id = ? AND status = 'deleted'");
+        $process->execute([$processId]);
     }
 
     private function upsertArchiveCheckpoint(int $processId, string $processCode, string $startType, int $reportCount, string $status): void

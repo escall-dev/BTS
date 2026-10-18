@@ -45,4 +45,16 @@ if ($uri === '' || $uri === '/') {
     $uri = '/';
 }
 
+if (!empty($_SESSION['user'])) {
+    $lastTrashCleanup = (int) ($_SESSION['_bts_trash_cleanup_checked_at'] ?? 0);
+    if ($lastTrashCleanup < time() - 3600) {
+        $_SESSION['_bts_trash_cleanup_checked_at'] = time();
+        try {
+            (new \App\Models\Workflow())->purgeExpiredTrash();
+        } catch (\Throwable $exception) {
+            error_log('BTS Trash retention cleanup failed: ' . $exception->getMessage());
+        }
+    }
+}
+
 $router->dispatch($uri, $_SERVER['REQUEST_METHOD']);

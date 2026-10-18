@@ -7,6 +7,7 @@ $archivePage = max(1, (int) ($archivePage ?? 1));
 $archivePageCount = max(1, (int) ($archivePageCount ?? 1));
 $filterErrors = $filterErrors ?? [];
 $deleted = $deleted ?? false;
+$deleteNotFound = $deleteNotFound ?? false;
 $hasFilters = count(array_filter($filters, static fn ($key): bool => !in_array($key, ['page', 'per_page'], true) && trim((string) $filters[$key]) !== '', ARRAY_FILTER_USE_KEY)) > 0;
 $escape = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $archiveTimezone = new \DateTimeZone('Asia/Manila');
@@ -79,9 +80,10 @@ ob_start();
 </section>
 
 <?php if ($deleted): ?>
-    <div class="toast success" data-toast>Report process deleted from archive.</div>
+    <span data-success-modal data-success-title="Report moved to Trash" data-success-message="The report and its saved steps were moved to Trash. You can restore it within 30 days." data-success-label="Done" data-success-secondary-label="View Trash" data-success-secondary-href="/BTS/trash" hidden></span>
 
 <?php endif; ?>
+<?php if ($deleteNotFound): ?><div class="toast error" data-toast>This report could not be found, so it was not moved to Trash.</div><?php endif; ?>
 
 <section class='archive-certification-link'>
     <div>
@@ -277,7 +279,7 @@ ob_start();
                             <td data-label="Actions">
                                 <div class="archive-actions">
                                     <a class="button secondary" href="/BTS/reports/process/<?= $processId ?>/step/<?= $escape($currentStep) ?>"><?= $isCompleted ? 'Review' : 'Continue' ?></a>
-                                    <form method="post" action="/BTS/archive/<?= $processId ?>/delete" data-confirm-delete="Delete this saved report process from Archived Reports?">
+                                    <form method="post" action="/BTS/archive/<?= $processId ?>/delete" data-confirm-delete="true" data-confirm-title="Move this report to Trash?" data-confirm-message="The report and its saved steps will be moved to Trash." data-confirm-note="It will be permanently deleted 30 days after deletion. Restore it from Trash before then." data-confirm-label="Move to Trash" data-confirm-danger="true">
                                         <button type="submit" class="secondary danger-button">Delete</button>
                                     </form>
                                 </div>

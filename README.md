@@ -41,6 +41,12 @@ The **Barangay Treasury System (BTS)** streamlines and automates local governmen
 ### 🗄️ Archives & Audit Trail
 - Historical transaction repository with search, status filtering, and re-export capabilities.
 - Prevents tampering with completed processes while allowing workflow progression.
+- Deleted report processes move to Trash and can be restored for 30 days; expired items are permanently removed during authenticated app activity.
+
+### 🗑️ Trash Retention
+- Apply `database/migrations/20261018_add_trash_retention.sql` once to add the deletion timestamp and backfill existing deleted reports.
+- The app checks for expired reports at least hourly during authenticated use and whenever Archived Reports or Trash is opened.
+- `php tools/purge_trash.php` can also be scheduled with Windows Task Scheduler for cleanup while the app is idle.
 
 ---
 

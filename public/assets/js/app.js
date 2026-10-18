@@ -389,38 +389,98 @@
     function setupSystemInputSaveState() {
         document.querySelectorAll('[data-system-input-form]').forEach((form) => {
             const status = form.querySelector('[data-save-status]');
+            const statusLabel = status?.querySelector('[data-save-status-label]');
+            const countBadge = status?.querySelector('[data-unsaved-count-badge]');
+            const countText = countBadge?.querySelector('[data-unsaved-count]');
+            const countLabel = countBadge?.querySelector('[data-unsaved-count-label]');
             let isDirty = false;
+            const initialFields = new Map();
+            const initialRadioValues = new Map();
+            const initialTaxRows = new Map();
 
-            const markDirty = () => {
-                if (isDirty) {
+            Array.from(form.elements).forEach((control) => {
+                if (!control.name || ['hidden', 'submit', 'button', 'reset', 'file'].includes(control.type)) return;
+                if (control.type === 'radio') {
+                    if (!initialRadioValues.has(control.name)) {
+                        const selected = Array.from(form.elements).find((candidate) => candidate.type === 'radio' && candidate.name === control.name && candidate.checked);
+                        initialRadioValues.set(control.name, selected?.value || '');
+                    }
                     return;
                 }
-                isDirty = true;
-                form.classList.add('is-dirty');
+                if (control.closest('[data-tax-type-row]')) return;
+                initialFields.set(control, control.type === 'checkbox' ? control.checked : control.value);
+            });
+            form.querySelectorAll('[data-tax-type-row]').forEach((row) => {
+                initialTaxRows.set(row, row.querySelector('input')?.value.trim() || '');
+            });
+
+            const currentValue = (control) => {
+                if (control.type === 'checkbox') return control.checked;
+                if (control.tagName === 'SELECT') return control.value;
+                return control.value;
+            };
+            const getUnsavedCount = () => {
+                let count = 0;
+                const seenRadioNames = new Set();
+                Array.from(form.elements).forEach((control) => {
+                    if (!control.name || ['hidden', 'submit', 'button', 'reset', 'file'].includes(control.type)) return;
+                    if (control.type === 'radio') {
+                        if (seenRadioNames.has(control.name)) return;
+                        seenRadioNames.add(control.name);
+                        const selected = Array.from(form.elements).find((candidate) => candidate.type === 'radio' && candidate.name === control.name && candidate.checked);
+                        if ((selected?.value || '') !== (initialRadioValues.get(control.name) || '')) count += 1;
+                        return;
+                    }
+                    if (control.closest('[data-tax-type-row]')) return;
+                    if (!initialFields.has(control) || currentValue(control) !== initialFields.get(control)) count += 1;
+                });
+
+                const currentTaxRows = new Set(form.querySelectorAll('[data-tax-type-row]'));
+                initialTaxRows.forEach((initialName, row) => {
+                    if (!currentTaxRows.has(row) || (row.querySelector('input')?.value.trim() || '') !== initialName) count += 1;
+                });
+                currentTaxRows.forEach((row) => {
+                    if (!initialTaxRows.has(row)) count += 1;
+                });
+                if (form.querySelector('input[type="file"][name]')?.files?.length) count += 1;
+                return count;
+            };
+
+            const refreshStatus = () => {
+                const count = getUnsavedCount();
+                isDirty = count > 0;
+                form.dataset.unsavedCount = String(count);
+                form.classList.toggle('is-dirty', isDirty);
                 if (status) {
-                    status.textContent = 'Unsaved changes';
-                    status.classList.add('is-dirty');
+                    if (statusLabel) statusLabel.textContent = isDirty ? 'Changes pending' : 'All changes saved';
+                    if (countText) countText.textContent = String(count);
+                    if (countLabel) countLabel.textContent = count === 1 ? 'unsaved change' : 'unsaved changes';
+                    if (countBadge) countBadge.hidden = !isDirty;
+                    status.classList.toggle('is-dirty', isDirty);
                 }
             };
 
-            form.addEventListener('input', markDirty);
-            form.addEventListener('change', markDirty);
+            form.dataset.unsavedCount = '0';
+            form.addEventListener('input', refreshStatus);
+            form.addEventListener('change', refreshStatus);
             form.addEventListener('click', (event) => {
                 if (event.target.closest('[data-add-tax-type], [data-remove-tax-type]')) {
-                    markDirty();
+                    window.setTimeout(refreshStatus, 0);
                 }
             });
             form.addEventListener('submit', () => {
                 isDirty = false;
+                form.dataset.unsavedCount = '0';
                 form.classList.remove('is-dirty');
                 if (status) {
-                    status.textContent = 'Saving changes…';
+                    if (statusLabel) statusLabel.textContent = 'Saving changes…';
+                    if (countBadge) countBadge.hidden = true;
                     status.classList.remove('is-dirty');
                 }
             });
 
             window.addEventListener('beforeunload', (event) => {
-                if (!isDirty) {
+                if (!isDirty || window.__btsAllowUnsavedNavigation) {
                     return;
                 }
                 event.preventDefault();
@@ -462,17 +522,294 @@
         window.addEventListener('popstate', () => scrollToSection(window.location.hash));
     }
 
-    function setupDeleteConfirmation() {
+    function setupConfirmationModal() {
+        const dialog = document.querySelector('[data-confirmation-modal]');
+        if (!dialog || typeof dialog.showModal !== 'function') {
+            return;
+        }
+
+        const title = dialog.querySelector('[data-confirmation-title]');
+        const message = dialog.querySelector('[data-confirmation-message]');
+        const note = dialog.querySelector('[data-confirmation-note]');
+        const eyebrow = dialog.querySelector('[data-confirmation-eyebrow]');
+        const accept = dialog.querySelector('[data-confirmation-accept]');
+        const cancel = dialog.querySelector('[data-confirmation-cancel]');
+        const secondary = dialog.querySelector('[data-confirmation-secondary]');
+        const changesList = dialog.querySelector('[data-confirmation-changes]');
+        const successIcon = dialog.querySelector('[data-confirmation-success-icon]');
+        const timeoutIndicator = dialog.querySelector('[data-confirmation-timeout]');
+        let opener = null;
+        let onConfirm = null;
+        let successTimeoutId = null;
+
+        const close = () => {
+            if (successTimeoutId !== null) {
+                window.clearTimeout(successTimeoutId);
+                successTimeoutId = null;
+            }
+            if (dialog.open) dialog.close();
+        };
+        const setChanges = (changes) => {
+            changesList.replaceChildren();
+            changes.forEach((change) => {
+                const item = document.createElement('li');
+                item.textContent = change;
+                changesList.appendChild(item);
+            });
+            changesList.hidden = changes.length === 0;
+        };
+        const open = (source, action, changes = []) => {
+            opener = source;
+            onConfirm = action;
+            title.textContent = source.dataset.confirmTitle || 'Confirm this change';
+            message.textContent = source.dataset.confirmMessage || source.dataset.confirmSubmit || source.dataset.confirmDelete || 'Are you sure you want to continue?';
+            note.textContent = source.dataset.confirmNote || '';
+            note.hidden = note.textContent === '';
+            setChanges(changes);
+            eyebrow.textContent = source.matches('[data-confirm-delete]') ? 'Trash and retention' : 'Review changes';
+            accept.textContent = source.dataset.confirmLabel || 'Confirm';
+            cancel.textContent = 'Cancel';
+            cancel.hidden = false;
+            secondary.hidden = true;
+            successIcon.hidden = true;
+            timeoutIndicator.hidden = true;
+            dialog.classList.remove('is-success');
+            dialog.classList.toggle('is-danger', source.dataset.confirmDanger === 'true' || source.matches('[data-confirm-delete]'));
+            dialog.showModal();
+            accept.focus();
+        };
+        const openSuccess = (source) => {
+            opener = null;
+            onConfirm = null;
+            eyebrow.textContent = 'Completed successfully';
+            title.textContent = source.dataset.successTitle || 'Changes saved';
+            message.textContent = source.dataset.successMessage || 'The requested change was completed successfully.';
+            note.textContent = source.dataset.successNote || 'This dialog closes automatically in 1.5 seconds.';
+            note.hidden = false;
+            setChanges([]);
+            accept.textContent = source.dataset.successLabel || 'Done';
+            cancel.hidden = true;
+            secondary.textContent = source.dataset.successSecondaryLabel || '';
+            secondary.dataset.href = source.dataset.successSecondaryHref || '';
+            secondary.hidden = secondary.dataset.href === '';
+            successIcon.hidden = false;
+            timeoutIndicator.hidden = false;
+            dialog.classList.remove('is-danger');
+            dialog.classList.add('is-success');
+            dialog.showModal();
+            accept.focus();
+            successTimeoutId = window.setTimeout(close, 1500);
+        };
+        const openNavigationWarning = (link, destination, changeCount) => {
+            opener = link;
+            onConfirm = () => {
+                window.__btsAllowUnsavedNavigation = true;
+                window.location.assign(destination.href);
+            };
+            eyebrow.textContent = 'Unsaved changes';
+            title.textContent = 'Leave this page?';
+            message.textContent = `You have ${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'}.`;
+            note.textContent = 'Your unsaved edits will be discarded if you leave.';
+            note.hidden = false;
+            setChanges([]);
+            accept.textContent = 'Leave page';
+            cancel.textContent = 'Stay on page';
+            cancel.hidden = false;
+            secondary.hidden = true;
+            successIcon.hidden = true;
+            timeoutIndicator.hidden = true;
+            dialog.classList.remove('is-success');
+            dialog.classList.add('is-danger');
+            dialog.showModal();
+            cancel.focus();
+        };
+
+        const labelFor = (control) => {
+            if (control.name === 'ui[app_title]') return 'Sidebar title';
+            if (control.name === 'ui[reset_logo]') return 'Restore default logo';
+            const row = control.closest('[data-tax-type-row]');
+            if (row) return 'Tax type';
+            const palette = control.closest('.palette-option')?.querySelector('.palette-option-copy strong')?.textContent?.trim();
+            if (palette) return 'Theme palette';
+            const reportColor = control.closest('.report-color-card')?.querySelector('.report-color-card-heading strong')?.textContent?.trim();
+            if (reportColor) return `${reportColor} cell color`;
+            const field = control.closest('.system-input-field')?.querySelector(':scope > span')?.textContent?.trim();
+            if (field) return field;
+            const label = control.closest('label');
+            return label?.textContent?.replace(control.value || '', '').trim().replace(/\s+/g, ' ') || control.name;
+        };
+        const radioDisplayFor = (control) => control.closest('.palette-option')?.querySelector('.palette-option-copy strong')?.textContent?.trim() || control.value;
+        const valueFor = (control) => {
+            if (control.type === 'checkbox') return control.checked ? 'Enabled' : 'Disabled';
+            if (control.type === 'file') return control.files?.[0]?.name || '';
+            if (control.tagName === 'SELECT') return control.selectedOptions[0]?.textContent?.trim() || control.value;
+            if (control.type === 'color') return control.value.toUpperCase();
+            return String(control.value ?? '').trim();
+        };
+        const captureBaseline = (form) => {
+            const fields = new Map();
+            const radios = new Map();
+            Array.from(form.elements).forEach((control) => {
+                if (!control.name || ['hidden', 'submit', 'button', 'reset', 'file'].includes(control.type)) return;
+                if (control.type === 'radio') {
+                    if (!radios.has(control.name)) {
+                        const selected = Array.from(form.elements).find((candidate) => candidate.type === 'radio' && candidate.name === control.name && candidate.checked);
+                        radios.set(control.name, {
+                            value: selected?.value || '',
+                            label: control.name.includes('theme_preset') ? 'Theme palette' : labelFor(control),
+                            display: selected ? radioDisplayFor(selected) : 'None',
+                        });
+                    }
+                    return;
+                }
+                fields.set(control, { name: control.name, label: labelFor(control), value: valueFor(control) });
+            });
+            return { fields, radios };
+        };
+        const collectChanges = (form, baseline) => {
+            const changes = [];
+            const seen = new Set();
+            const currentRadioNames = new Set();
+            Array.from(form.elements).forEach((control) => {
+                if (!control.name || ['hidden', 'submit', 'button', 'reset', 'file'].includes(control.type)) return;
+                if (control.type === 'radio') {
+                    if (currentRadioNames.has(control.name)) return;
+                    currentRadioNames.add(control.name);
+                    const selected = Array.from(form.elements).find((candidate) => candidate.type === 'radio' && candidate.name === control.name && candidate.checked);
+                    const before = baseline.radios.get(control.name);
+                    const after = selected?.value || '';
+                    if (before && before.value !== after) {
+                        changes.push(`${before.label}: ${before.display} → ${selected ? radioDisplayFor(selected) : 'None'}`);
+                    }
+                    return;
+                }
+
+                seen.add(control);
+                const current = valueFor(control);
+                const before = baseline.fields.get(control);
+                if (before && before.value !== current) {
+                    const label = before.label === 'Tax type' ? 'Tax type name' : before.label;
+                    changes.push(`${label}: ${before.value || 'Empty'} → ${current || 'Empty'}`);
+                } else if (!before && current !== '') {
+                    const label = labelFor(control);
+                    changes.push(`${label === 'Tax type' ? 'Added tax type' : `Added ${label}`}: ${current}`);
+                }
+            });
+
+            baseline.fields.forEach((before, control) => {
+                if (seen.has(control) || form.contains(control) || before.label !== 'Tax type') return;
+                changes.push(`Removed tax type: ${before.value || 'Unnamed'}`);
+            });
+            baseline.radios.forEach((before, name) => {
+                if (currentRadioNames.has(name)) return;
+                changes.push(`${before.label}: ${before.label} → None`);
+            });
+
+            const file = form.querySelector('input[type="file"][name]');
+            if (file?.files?.[0]) {
+                const previousLogo = form.querySelector('[data-logo-preview] img');
+                changes.push(`System logo: ${previousLogo ? 'current logo' : 'default logo'} → ${file.files[0].name}`);
+            }
+            return changes;
+        };
+
+        const formBaselines = new WeakMap();
+        document.querySelectorAll('[data-confirm-submit], [data-confirm-delete]').forEach((form) => {
+            if (form.tagName === 'FORM') formBaselines.set(form, captureBaseline(form));
+        });
+
+        dialog.addEventListener('close', () => {
+            if (successTimeoutId !== null) {
+                window.clearTimeout(successTimeoutId);
+                successTimeoutId = null;
+            }
+            if (opener && opener.isConnected) opener.focus();
+            opener = null;
+            onConfirm = null;
+        });
+        dialog.addEventListener('click', (event) => {
+            if (event.target === dialog) close();
+        });
+        cancel.addEventListener('click', close);
+        secondary.addEventListener('click', () => {
+            const destination = secondary.dataset.href;
+            close();
+            if (destination) window.location.assign(destination);
+        });
+        accept.addEventListener('click', () => {
+            const confirm = onConfirm;
+            close();
+            if (confirm) confirm();
+        });
+
+        const successMessage = document.querySelector('[data-success-modal]');
+        if (successMessage) {
+            openSuccess(successMessage);
+            const url = new URL(window.location.href);
+            ['saved', 'deleted', 'restored', 'purged'].forEach((key) => url.searchParams.delete(key));
+            window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+        }
+
         document.addEventListener('submit', (event) => {
-            const form = event.target.closest('[data-confirm-delete]');
-            if (!form) {
+            const form = event.target.closest('[data-confirm-submit], [data-confirm-delete]');
+            if (!form) return;
+            if (form.dataset.confirmationApproved === 'true') {
+                delete form.dataset.confirmationApproved;
                 return;
             }
 
-            if (!window.confirm(form.dataset.confirmDelete || 'Delete this saved report process?')) {
-                event.preventDefault();
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            const submitter = event.submitter;
+            const baseline = formBaselines.get(form) || captureBaseline(form);
+            const changes = collectChanges(form, baseline);
+            if (changes.length === 0 && form.matches('[data-system-input-form]')) changes.push('No field changes detected.');
+            open(form, () => {
+                form.dataset.confirmationApproved = 'true';
+                if (submitter && typeof form.requestSubmit === 'function') form.requestSubmit(submitter);
+                else if (typeof form.requestSubmit === 'function') form.requestSubmit();
+                else form.submit();
+            }, changes);
+        }, true);
+
+        document.addEventListener('click', (event) => {
+            const action = event.target.closest('[data-confirm-action]');
+            if (!action) return;
+            if (action.dataset.confirmationApproved === 'true') {
+                delete action.dataset.confirmationApproved;
+                return;
             }
-        });
+
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            open(action, () => {
+                action.dataset.confirmationApproved = 'true';
+                action.click();
+            });
+        }, true);
+
+        document.addEventListener('click', (event) => {
+            if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            const link = event.target.closest('a[href]');
+            if (!link || link.target || link.hasAttribute('download')) return;
+            const dirtyForms = Array.from(document.querySelectorAll('[data-system-input-form]'))
+                .filter((form) => Number(form.dataset.unsavedCount || 0) > 0);
+            if (dirtyForms.length === 0) return;
+
+            let destination;
+            try {
+                destination = new URL(link.href, window.location.href);
+            } catch {
+                return;
+            }
+            if (destination.origin !== window.location.origin) return;
+            if (destination.pathname === window.location.pathname && destination.search === window.location.search && destination.hash) return;
+
+            const changeCount = dirtyForms.reduce((total, form) => total + Number(form.dataset.unsavedCount || 0), 0);
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            openNavigationWarning(link, destination, changeCount);
+        }, true);
     }
     function setupLoginBrandingAnimation() {
         const headings = Array.from(document.querySelectorAll('[data-brand-headline]'));
@@ -1276,7 +1613,7 @@
         setupStartModal();
         setupSystemInputSaveState();
         setupSettingsSectionNavigation();
-        setupDeleteConfirmation();
+        setupConfirmationModal();
         setupArchiveFilters();
         setupArchivePagination();
         document.addEventListener('click', (event) => {
@@ -1527,6 +1864,7 @@
 
                 clearLogoSelection.addEventListener('click', () => {
                     logoInput.value = '';
+                    logoInput.dispatchEvent(new Event('change', { bubbles: true }));
                     restoreLogoPreview();
                     logoPreviewStatus.textContent = 'Selection cleared. The saved logo is still in use.';
                 });
