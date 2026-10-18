@@ -59,9 +59,6 @@ ob_start();
             </label>
             <button type="submit" class="auth-submit">Sign in</button>
         </form>
-        <?php if (trim((string) ($appVersion ?? '')) !== ''): ?>
-            <p class="auth-version"><?= htmlspecialchars($appVersion, ENT_QUOTES, 'UTF-8') ?></p>
-        <?php endif; ?>
     </section>
     <aside class="auth-brand auth-brand--process" aria-label="Making every process possible">
         <p class="auth-brand__eyebrow">Treasury • Possibility</p>
@@ -72,6 +69,31 @@ ob_start();
         </h2>
         <span class="auth-brand__rule" aria-hidden="true"></span>
     </aside>
+</div>
+<footer class="auth-footer">
+    <nav class="auth-footer__links" aria-label="System information">
+        <button type="button" data-auth-info="privacy">Privacy Policy</button>
+        <button type="button" data-auth-info="terms">Terms &amp; Policies</button>
+        <button type="button" data-auth-info="community">Community Standards</button>
+        <button type="button" data-auth-info="about">About Us</button>
+    </nav>
+    <?php if (trim((string) ($appVersion ?? '')) !== ''): ?>
+        <p class="auth-footer__version"><?= htmlspecialchars($appVersion, ENT_QUOTES, 'UTF-8') ?></p>
+    <?php endif; ?>
+</footer>
+<dialog class="auth-info-dialog" data-auth-info-dialog aria-labelledby="auth-info-title" aria-describedby="auth-info-content">
+    <div class="auth-info-dialog__panel">
+        <p class="auth-info-dialog__eyebrow">Barangay Treasury System</p>
+        <h2 id="auth-info-title" data-auth-info-title></h2>
+        <div id="auth-info-content" class="auth-info-dialog__content" data-auth-info-content></div>
+        <button type="button" class="auth-info-dialog__close" data-auth-info-close>Close</button>
+    </div>
+</dialog>
+<div class="auth-info-copy" data-auth-info-copy hidden>
+    <p data-auth-info-text="privacy">Barangay Treasury System processes personal data in accordance with Republic Act No. 10173, or the Data Privacy Act of 2012, its Implementing Rules and Regulations, and applicable issuances of the National Privacy Commission. It also records transaction information to record payments, manage treasury records, and meet official reporting and audit requirements. Only authorized personnel may access this information for their assigned duties. The Barangay stores records on its designated system and applies safeguards to protect them. It may disclose records when required or permitted by law.</p>
+    <p data-auth-info-text="terms">This system is for authorized Barangay Treasury work. Use your assigned account, protect your password, and access only the records needed for your duties. Do not share, misuse, or alter records, or attempt to bypass system controls. The system records user activity for security and audit purposes. Report errors or suspected security incidents to Developers.</p>
+    <p data-auth-info-text="community">Use the system responsibly and only for official duties. Protect residents’ and employees’ information. Do not browse records without an official reason, disclose information through unapproved channels, falsify transactions, or interfere with system security. Report suspected misuse or unauthorized access to Developers.</p>
+    <p data-auth-info-text="about">This system supports Barangay in recording treasury transactions and managing related services. The Barangay remains responsible for its compliance with Republic Act No. 11032 and its Citizen’s Charter</p>
 </div>
 <?php
 $content = ob_get_clean();

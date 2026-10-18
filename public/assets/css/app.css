@@ -6167,9 +6167,116 @@ body.is-guest {
     box-shadow: 0 0 0 1px rgba(255, 145, 133, 0.26);
 }
 
+.is-guest .guest-page {
+    grid-template-rows: minmax(0, 1fr) auto;
+    justify-items: stretch;
+    padding: 0;
+}
+
+.is-guest .auth-stage {
+    justify-self: center;
+    align-self: center;
+    padding: clamp(28px, 6vw, 64px) clamp(20px, 6vw, 64px);
+}
+
+.auth-footer {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    width: 100%;
+    min-height: 52px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px 24px;
+    padding: 6px clamp(20px, 4vw, 48px);
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    background: linear-gradient(
+        110deg,
+        color-mix(in srgb, var(--primary-dark) 42%, transparent),
+        color-mix(in srgb, var(--primary) 24%, transparent) 52%,
+        color-mix(in srgb, var(--primary-dark) 42%, transparent)
+    );
+    color: #fff;
+    -webkit-backdrop-filter: blur(16px) saturate(125%);
+    backdrop-filter: blur(16px) saturate(125%);
+    box-shadow: 0 -8px 28px rgba(21, 42, 70, 0.12);
+}
+
+.auth-footer__links {
+    display: flex;
+    min-width: 0;
+    min-height: 40px;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px clamp(18px, 3vw, 36px);
+}
+
+.auth-footer__links button {
+    min-height: 32px;
+    padding: 4px 0;
+    border: 0;
+    background: transparent;
+    color: #fff;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.09em;
+    line-height: 1.3;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.auth-footer__links button:hover,
+.auth-footer__links button:focus-visible {
+    color: #fff;
+    text-decoration: underline;
+    text-decoration-color: rgba(255, 255, 255, 0.76);
+    text-underline-offset: 5px;
+    text-shadow: 0 1px 8px rgba(13, 27, 52, 0.36);
+}
+
+.auth-footer__version {
+    flex: 0 0 auto;
+    margin: 0 0 0 auto;
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-shadow: 0 1px 8px rgba(13, 27, 52, 0.25);
+    white-space: nowrap;
+}
+
+.auth-info-dialog {
+    width: min(560px, calc(100% - 32px));
+    max-height: min(80vh, 680px);
+    padding: 0;
+    overflow: auto;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 20px;
+    background: linear-gradient(145deg, color-mix(in srgb, var(--primary-dark) 94%, #fff 6%), color-mix(in srgb, var(--primary-dark) 98%, #000 2%));
+    color: #fff;
+    box-shadow: 0 28px 90px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.auth-info-dialog::backdrop { background: rgba(8, 26, 21, 0.64); backdrop-filter: blur(4px); }
+.auth-info-dialog__panel { display: grid; justify-items: center; padding: clamp(26px, 6vw, 42px); text-align: center; }
+.auth-info-dialog__eyebrow { margin: 0 0 10px; color: rgba(255, 255, 255, 0.66); font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.auth-info-dialog h2 { margin: 0 0 16px; color: #fff; font-size: clamp(21px, 4vw, 25px); font-weight: 700; letter-spacing: -.025em; line-height: 1.25; }
+.auth-info-dialog__content { width: 100%; max-width: 54ch; }
+.auth-info-dialog__content p { margin: 0; color: rgba(255, 255, 255, 0.88); font-size: 14px; line-height: 1.75; }
+.auth-info-dialog__close { min-width: 112px; min-height: 42px; margin-top: 26px; padding: 0 22px; border: 1px solid rgba(255, 255, 255, 0.24); border-radius: 10px; background: rgba(255, 255, 255, 0.95); color: var(--primary-dark); font: inherit; font-weight: 700; cursor: pointer; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16); }
+.auth-info-dialog__close:hover { background: #eaf2ff; }
+.auth-info-dialog :focus-visible { outline: 3px solid #9fc9ff; outline-offset: 3px; }
+.auth-info-copy { display: none !important; }
+
 @media (max-width: 520px) {
     .is-guest .guest-page {
-        padding: 18px;
+        padding: 0;
     }
 
     .is-guest .auth-panel {
@@ -6222,7 +6329,7 @@ body.is-guest {
 
 @media (max-width: 640px) {
     .is-guest .guest-page {
-        padding: 28px 20px;
+        padding: 0;
     }
 
     .auth-stage {

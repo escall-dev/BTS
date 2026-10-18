@@ -807,6 +807,46 @@
             openNavigationWarning(link, destination, changeCount);
         }, true);
     }
+
+    function setupAuthInfoDialog() {
+        const dialog = document.querySelector('[data-auth-info-dialog]');
+        if (!dialog || typeof dialog.showModal !== 'function') return;
+
+        const title = dialog.querySelector('[data-auth-info-title]');
+        const content = dialog.querySelector('[data-auth-info-content]');
+        const closeButton = dialog.querySelector('[data-auth-info-close]');
+        const copy = document.querySelector('[data-auth-info-copy]');
+        const titles = {
+            privacy: 'Privacy Policy',
+            terms: 'Terms of Use',
+            community: 'Community Standards',
+            about: 'About the System',
+        };
+        if (!title || !content || !closeButton || !copy) return;
+
+        document.querySelectorAll('[data-auth-info]').forEach((trigger) => {
+            trigger.addEventListener('click', () => {
+                const key = trigger.dataset.authInfo;
+                const source = copy.querySelector(`[data-auth-info-text="${key}"]`);
+                if (!source) return;
+
+                title.textContent = titles[key] || trigger.textContent.trim();
+                content.replaceChildren(source.cloneNode(true));
+                dialog.dataset.lastInfo = key;
+                dialog.showModal();
+                closeButton.focus();
+            });
+        });
+
+        closeButton.addEventListener('click', () => dialog.close());
+        dialog.addEventListener('close', () => {
+            const opener = document.querySelector(`[data-auth-info="${dialog.dataset.lastInfo || ''}"]`);
+            if (opener) opener.focus();
+        });
+        dialog.addEventListener('click', (event) => {
+            if (event.target === dialog) dialog.close();
+        });
+    }
     function setupLoginForm() {
         const form = document.querySelector('[data-login-form]');
         if (!form) return;
@@ -1802,6 +1842,7 @@
         setupSystemInputSaveState();
         setupSettingsSectionNavigation();
         setupConfirmationModal();
+        setupAuthInfoDialog();
         setupArchiveFilters();
         setupArchivePagination();
         document.addEventListener('click', (event) => {
