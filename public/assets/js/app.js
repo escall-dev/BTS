@@ -537,7 +537,6 @@
         const secondary = dialog.querySelector('[data-confirmation-secondary]');
         const changesList = dialog.querySelector('[data-confirmation-changes]');
         const successIcon = dialog.querySelector('[data-confirmation-success-icon]');
-        const timeoutIndicator = dialog.querySelector('[data-confirmation-timeout]');
         let opener = null;
         let onConfirm = null;
         let successTimeoutId = null;
@@ -572,7 +571,6 @@
             cancel.hidden = false;
             secondary.hidden = true;
             successIcon.hidden = true;
-            timeoutIndicator.hidden = true;
             dialog.classList.remove('is-success');
             dialog.classList.toggle('is-danger', source.dataset.confirmDanger === 'true' || source.matches('[data-confirm-delete]'));
             dialog.showModal();
@@ -584,8 +582,8 @@
             eyebrow.textContent = 'Completed successfully';
             title.textContent = source.dataset.successTitle || 'Changes saved';
             message.textContent = source.dataset.successMessage || 'The requested change was completed successfully.';
-            note.textContent = source.dataset.successNote || 'This dialog closes automatically in 1.5 seconds.';
-            note.hidden = false;
+            note.textContent = '';
+            note.hidden = true;
             setChanges([]);
             accept.textContent = source.dataset.successLabel || 'Done';
             cancel.hidden = true;
@@ -593,12 +591,11 @@
             secondary.dataset.href = source.dataset.successSecondaryHref || '';
             secondary.hidden = secondary.dataset.href === '';
             successIcon.hidden = false;
-            timeoutIndicator.hidden = false;
             dialog.classList.remove('is-danger');
             dialog.classList.add('is-success');
             dialog.showModal();
             accept.focus();
-            successTimeoutId = window.setTimeout(close, 1500);
+            successTimeoutId = window.setTimeout(close, 2000);
         };
         const openNavigationWarning = (link, destination, changeCount) => {
             opener = link;
@@ -617,7 +614,6 @@
             cancel.hidden = false;
             secondary.hidden = true;
             successIcon.hidden = true;
-            timeoutIndicator.hidden = true;
             dialog.classList.remove('is-success');
             dialog.classList.add('is-danger');
             dialog.showModal();

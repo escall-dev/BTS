@@ -117,7 +117,6 @@ $sidebarIcon = static function (string $icon): string {
                 <button type="button" class="secondary" data-confirmation-cancel>Cancel</button>
                 <button type="button" data-confirmation-accept>Confirm</button>
             </div>
-            <div class="app-confirm-dialog__timeout" data-confirmation-timeout aria-hidden="true" hidden><span></span></div>
         </div>
     </dialog>
 
