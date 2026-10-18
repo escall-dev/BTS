@@ -4,6 +4,12 @@ $logoIsValid = preg_match('/^uploads\/branding\/system-logo-[a-f0-9]{16}\.(?:png
     && is_file(__DIR__ . '/../../../public/' . $logoPath);
 ob_start();
 ?>
+<div class="auth-mesh" aria-hidden="true">
+    <span class="auth-mesh__layer auth-mesh__layer--accent"></span>
+    <span class="auth-mesh__layer auth-mesh__layer--sky"></span>
+    <span class="auth-mesh__layer auth-mesh__layer--white"></span>
+    <span class="auth-mesh__layer auth-mesh__layer--blue"></span>
+</div>
 <div class="auth-stage">
     <aside class="auth-brand auth-brand--transactions" aria-label="Transaction accountability">
         <p class="auth-brand__eyebrow">Treasury • Accountability</p>
@@ -29,17 +35,27 @@ ob_start();
             <h1 id="login-title">Login</h1>
             <p class="auth-welcome">Hello there! Sign in to continue.</p>
         </header>
-        <form method="post" action="/BTS/login" class="form-stack auth-form">
+        <form method="post" action="/BTS/login" autocomplete="on" class="form-stack auth-form" data-login-form>
             <?php if (!empty($error)): ?>
                 <p class="alert auth-error" role="alert"><?= htmlspecialchars($error) ?></p>
             <?php endif; ?>
-            <label>
-                Username
-                <input type="text" name="username" autocomplete="username" required>
-            </label>
-            <label>
-                Password
-                <input type="password" name="password" autocomplete="current-password" required>
+            <div class="auth-field">
+                <label for="login-username">Username</label>
+                <input id="login-username" type="text" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+            </div>
+            <div class="auth-field">
+                <label for="login-password">Password</label>
+                <div class="auth-password-field">
+                    <input id="login-password" type="password" name="password" autocomplete="current-password" required>
+                    <button type="button" class="auth-password-toggle" data-password-toggle aria-label="Show password" aria-pressed="false" aria-controls="login-password">
+                        <svg data-password-eye-open viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <svg data-password-eye-closed viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.2A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a16 16 0 0 1-3.1 3.9M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7a10.8 10.8 0 0 0 4.1-.8"/></svg>
+                    </button>
+                </div>
+            </div>
+            <label class="auth-remember" for="remember-username">
+                <input id="remember-username" type="checkbox" data-remember-username>
+                <span>Remember me</span>
             </label>
             <button type="submit" class="auth-submit">Sign in</button>
         </form>

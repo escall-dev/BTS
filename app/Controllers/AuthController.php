@@ -26,6 +26,7 @@ class AuthController extends Controller
                 'username' => $user['username'],
                 'role' => $user['role'],
             ];
+            $_SESSION['show_login_loading'] = true;
 
             $this->redirect('/BTS/dashboard');
         }

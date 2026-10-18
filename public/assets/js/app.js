@@ -807,6 +807,113 @@
             openNavigationWarning(link, destination, changeCount);
         }, true);
     }
+    function setupLoginForm() {
+        const form = document.querySelector('[data-login-form]');
+        if (!form) return;
+
+        const usernameInput = form.querySelector('[name="username"]');
+        const passwordInput = form.querySelector('[name="password"]');
+        const rememberInput = form.querySelector('[data-remember-username]');
+        const passwordToggle = form.querySelector('[data-password-toggle]');
+        const rememberedUsernameKey = 'bts.login.remembered-username';
+
+        if (usernameInput && rememberInput) {
+            try {
+                const rememberedUsername = window.localStorage.getItem(rememberedUsernameKey);
+                if (rememberedUsername) {
+                    usernameInput.value = rememberedUsername;
+                    rememberInput.checked = true;
+                }
+            } catch {
+                // Keep the login usable when browser storage is disabled.
+            }
+
+            const persistRememberedUsername = () => {
+                try {
+                    const username = usernameInput.value.trim();
+                    if (rememberInput.checked && username) {
+                        window.localStorage.setItem(rememberedUsernameKey, username);
+                    } else if (!rememberInput.checked || !username) {
+                        window.localStorage.removeItem(rememberedUsernameKey);
+                    }
+                } catch {
+                    // Storage may be unavailable in private or restricted contexts.
+                }
+            };
+
+            rememberInput.addEventListener('change', persistRememberedUsername);
+            usernameInput.addEventListener('input', persistRememberedUsername);
+            form.addEventListener('submit', persistRememberedUsername);
+        }
+
+        if (passwordInput && passwordToggle) {
+            passwordToggle.addEventListener('click', () => {
+                const showPassword = passwordInput.type === 'password';
+                passwordInput.type = showPassword ? 'text' : 'password';
+                passwordToggle.setAttribute('aria-pressed', String(showPassword));
+                passwordToggle.setAttribute('aria-label', showPassword ? 'Hide password' : 'Show password');
+                passwordToggle.classList.toggle('is-visible', showPassword);
+            });
+        }
+    }
+
+    function setupPageLoadingSkeleton() {
+        const skeleton = document.querySelector('[data-page-loading-skeleton]');
+        if (!skeleton || document.body.classList.contains('is-guest')) return;
+
+        let showTimer = 0;
+        const reset = () => {
+            window.clearTimeout(showTimer);
+            document.body.classList.remove('is-page-loading');
+            skeleton.hidden = true;
+        };
+        if (document.body.classList.contains('is-login-transition')) {
+            showTimer = window.setTimeout(() => {
+                document.body.classList.remove('is-login-transition');
+                reset();
+            }, 1500);
+        }
+        const schedule = (event) => {
+            window.clearTimeout(showTimer);
+            showTimer = window.setTimeout(() => {
+                if (event.defaultPrevented) return;
+                skeleton.hidden = false;
+                document.body.classList.add('is-page-loading');
+            }, 180);
+        };
+
+        document.addEventListener('click', (event) => {
+            if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            const target = event.target instanceof Element ? event.target : null;
+            const link = target?.closest('a[href]');
+            if (!link || link.target || link.hasAttribute('download') || link.hasAttribute('data-page-loading-ignore')) return;
+            if (link.matches('[role="tab"], [data-section-link], [data-pagination-link]')) return;
+
+            let destination;
+            try {
+                destination = new URL(link.href, window.location.href);
+            } catch {
+                return;
+            }
+            if (destination.origin !== window.location.origin) return;
+            if (destination.pathname === window.location.pathname && destination.search === window.location.search) return;
+            schedule(event);
+        });
+
+        document.addEventListener('submit', (event) => {
+            const form = event.target;
+            if (event.defaultPrevented || !(form instanceof HTMLFormElement) || form.hasAttribute('data-page-loading-ignore')) return;
+            if (form.target && form.target !== '_self') return;
+            if ((form.method || 'get').toLowerCase() === 'dialog') return;
+            schedule(event);
+        });
+
+        window.addEventListener('pageshow', (event) => {
+            if (event.persisted || !document.body.classList.contains('is-login-transition')) reset();
+        });
+        window.addEventListener('pagehide', () => window.clearTimeout(showTimer));
+    }
+
     function setupLoginBrandingAnimation() {
         const headings = Array.from(document.querySelectorAll('[data-brand-headline]'));
         const supportingLine = document.querySelector('.auth-welcome');
@@ -1687,6 +1794,8 @@
     }
 
     onReady(() => {
+        setupPageLoadingSkeleton();
+        setupLoginForm();
         setupLoginBrandingAnimation();
         setupHoverNotes();
         setupStartModal();

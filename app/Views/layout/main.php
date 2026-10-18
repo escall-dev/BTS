@@ -4,6 +4,13 @@ $pageTitle = isset($title) ? $title . ' - ' . $app['name'] : $app['name'];
 $active = $active ?? '';
 $username = (string) ($_SESSION['user']['username'] ?? 'User');
 $userInitial = strtoupper(substr($username, 0, 1));
+$showLoginLoading = !empty($_SESSION['show_login_loading']);
+if ($showLoginLoading) {
+    unset($_SESSION['show_login_loading']);
+}
+$bodyClasses = [];
+if (empty($_SESSION['user'])) $bodyClasses[] = 'is-guest';
+if ($showLoginLoading) $bodyClasses[] = 'is-login-transition';
 $sidebarTitle = $sidebarTitle ?? 'BrgyTreasurySystem';
 $uiSettings = $uiSettings ?? [];
 $uiTheme = $uiTheme ?? [];
@@ -48,7 +55,32 @@ $sidebarIcon = static function (string $icon): string {
     <link rel="stylesheet" href="/BTS/assets/css/app.css?v=<?= filemtime(__DIR__ . '/../../../public/assets/css/app.css') ?>">
     <?php if ($uiTheme !== []): ?><style>:root{--ebony:<?= htmlspecialchars($uiTheme['primary']) ?>;--primary:<?= htmlspecialchars($uiTheme['primary']) ?>;--primary-dark:<?= htmlspecialchars($uiTheme['primary_dark']) ?>;--sidebar:<?= htmlspecialchars($uiTheme['primary_dark']) ?>;--sidebar-foreground:<?= htmlspecialchars($uiTheme['sidebar_foreground']) ?>;--sidebar-muted:<?= htmlspecialchars($uiTheme['sidebar_muted']) ?>;--palm:<?= htmlspecialchars($uiTheme['accent']) ?>;--accent:<?= htmlspecialchars($uiTheme['accent']) ?>;--accent-foreground:<?= htmlspecialchars($uiTheme['accent_foreground']) ?>}</style><?php endif; ?>
 </head>
-<body class="<?= empty($_SESSION['user']) ? 'is-guest' : '' ?>">
+<body class="<?= htmlspecialchars(implode(' ', $bodyClasses), ENT_QUOTES, 'UTF-8') ?>">
+    <div class="page-loading-skeleton" data-page-loading-skeleton aria-hidden="true"<?= $showLoginLoading ? '' : ' hidden' ?>>
+        <div class="page-loading-skeleton__sidebar">
+            <span class="page-loading-skeleton__brand"></span>
+            <span class="page-loading-skeleton__nav"></span>
+            <span class="page-loading-skeleton__nav"></span>
+            <span class="page-loading-skeleton__nav"></span>
+            <span class="page-loading-skeleton__nav"></span>
+        </div>
+        <div class="page-loading-skeleton__content">
+            <span class="page-loading-skeleton__title"></span>
+            <span class="page-loading-skeleton__subtitle"></span>
+            <div class="page-loading-skeleton__cards">
+                <span></span><span></span><span></span>
+            </div>
+            <span class="page-loading-skeleton__panel"></span>
+        </div>
+        <div class="page-loading-skeleton__login">
+            <span class="page-loading-skeleton__logo"></span>
+            <span class="page-loading-skeleton__title"></span>
+            <span class="page-loading-skeleton__subtitle"></span>
+            <span class="page-loading-skeleton__field"></span>
+            <span class="page-loading-skeleton__field"></span>
+            <span class="page-loading-skeleton__button"></span>
+        </div>
+    </div>
     <?php if (!empty($_SESSION['user'])): ?>
         <div class="app-shell">
             <aside class="sidebar">
