@@ -1530,6 +1530,95 @@ class Workflow extends Model
         return $archives;
     }
 
+    public function dashboardWorkQueue(int $limit = 4): array
+    {
+        $limit = max(1, min(4, $limit));
+        $stmt = $this->db->query(
+            "SELECT
+                p.id AS process_id,
+                p.process_code,
+                p.start_type,
+                p.current_step,
+                p.created_at,
+                p.updated_at,
+                a.archived_at,
+                (SELECT COUNT(*) FROM report_steps progress_step WHERE progress_step.process_id = p.id) AS report_count,
+                (SELECT COUNT(*) FROM report_steps saved_step WHERE saved_step.process_id = p.id AND saved_step.is_saved = 1) AS saved_count,
+                (SELECT current_step.is_saved FROM report_steps current_step WHERE current_step.process_id = p.id AND current_step.step_key = p.current_step LIMIT 1) AS current_step_saved,
+                (SELECT project_data.field_value
+                 FROM report_steps project_step
+                 INNER JOIN report_step_data project_data ON project_data.report_step_id = project_step.id
+                 WHERE project_step.process_id = p.id
+                   AND project_step.step_key = 'bac-reports'
+                   AND project_data.field_key = 'PROJECTITLE'
+                 LIMIT 1) AS bac_project_title,
+                (SELECT purpose_data.field_value
+                 FROM report_steps purpose_step
+                 INNER JOIN report_step_data purpose_data ON purpose_data.report_step_id = purpose_step.id
+                 WHERE purpose_step.process_id = p.id
+                   AND purpose_step.step_key = 'purchase-request'
+                   AND purpose_data.field_key = 'PRPURPOSE'
+                 LIMIT 1) AS purchase_request_purpose
+             FROM report_processes p
+             LEFT JOIN archives a ON a.process_id = p.id
+             WHERE (p.status IS NULL OR p.status NOT IN ('completed', 'deleted'))
+               AND (a.status IS NULL OR a.status NOT IN ('completed', 'deleted'))
+             ORDER BY COALESCE(a.archived_at, p.updated_at, p.created_at) DESC
+             LIMIT {$limit}"
+        );
+
+        $processes = $stmt->fetchAll();
+        foreach ($processes as &$process) {
+            $process['report_count'] = (int) $process['report_count'];
+            $process['saved_count'] = (int) $process['saved_count'];
+            $process['ready_for_next_step'] = (int) ($process['current_step_saved'] ?? 0) === 1;
+            $projectTitle = trim((string) ($process['bac_project_title'] ?? ''));
+            $purchasePurpose = trim((string) ($process['purchase_request_purpose'] ?? ''));
+            $process['project_title'] = $projectTitle !== '' ? $projectTitle : ($purchasePurpose !== '' ? $purchasePurpose : 'Untitled report');
+        }
+        unset($process);
+
+        return $processes;
+    }
+
+    public function dashboardStats(): array
+    {
+        try {
+            $stmt = $this->db->query(
+                "SELECT
+                    COUNT(CASE WHEN (p.status IS NULL OR p.status NOT IN ('completed', 'deleted'))
+                                AND (a.status IS NULL OR a.status NOT IN ('completed', 'deleted')) THEN 1 END) AS active_count,
+                    COUNT(CASE WHEN (p.status IS NULL OR p.status NOT IN ('completed', 'deleted'))
+                                AND (a.status IS NULL OR a.status NOT IN ('completed', 'deleted'))
+                                AND (SELECT COUNT(*) FROM report_steps s WHERE s.process_id = p.id AND s.is_saved = 1) > 0 THEN 1 END) AS in_progress_count,
+                    COUNT(CASE WHEN (p.status IS NULL OR p.status NOT IN ('completed', 'deleted'))
+                                AND (a.status IS NULL OR a.status NOT IN ('completed', 'deleted'))
+                                AND (
+                                    (SELECT s2.is_saved FROM report_steps s2 WHERE s2.process_id = p.id AND s2.step_key = p.current_step LIMIT 1) = 1
+                                    OR (SELECT COUNT(*) FROM report_steps s3 WHERE s3.process_id = p.id AND s3.is_saved = 1) >= (SELECT COUNT(*) FROM report_steps s4 WHERE s4.process_id = p.id)
+                                ) THEN 1 END) AS ready_count,
+                    COUNT(CASE WHEN (COALESCE(a.status, p.status) = 'completed')
+                                AND (p.status IS NULL OR p.status <> 'deleted') THEN 1 END) AS completed_count
+                FROM report_processes p
+                LEFT JOIN archives a ON a.process_id = p.id"
+            );
+            $row = $stmt ? ($stmt->fetch(\PDO::FETCH_ASSOC) ?: []) : [];
+            return [
+                'active' => (int) ($row['active_count'] ?? 0),
+                'in_progress' => (int) ($row['in_progress_count'] ?? 0),
+                'ready' => (int) ($row['ready_count'] ?? 0),
+                'completed' => (int) ($row['completed_count'] ?? 0),
+            ];
+        } catch (\Throwable) {
+            return [
+                'active' => 0,
+                'in_progress' => 0,
+                'ready' => 0,
+                'completed' => 0,
+            ];
+        }
+    }
+
     public function archiveSuggestions(array $filters, string $query, int $limit = 4): array
     {
         $filters['process_number'] = '';

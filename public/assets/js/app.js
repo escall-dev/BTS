@@ -2012,5 +2012,39 @@
                 toast.remove();
             }, 3400);
         });
+
+        // Live Philippine Standard Time (Asia/Manila) Clock
+        const clockWidget = document.querySelector('[data-live-clock]');
+        if (clockWidget) {
+            const timeElement = clockWidget.querySelector('[data-clock-time]');
+            const dateElement = clockWidget.querySelector('[data-clock-date]');
+            const timeFormatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'Asia/Manila',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            });
+            const dateFormatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'Asia/Manila',
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            const updateClock = () => {
+                const now = new Date();
+                if (timeElement) {
+                    timeElement.textContent = timeFormatter.format(now);
+                }
+                if (dateElement) {
+                    dateElement.textContent = dateFormatter.format(now);
+                }
+            };
+
+            updateClock();
+            setInterval(updateClock, 1000);
+        }
     });
 })();
