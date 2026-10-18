@@ -474,6 +474,391 @@
             }
         });
     }
+    function setupArchiveDateRange() {
+        const form = document.querySelector('[data-archive-filter-form]');
+        const picker = form?.querySelector('[data-date-range-picker]');
+        if (!form || !picker) {
+            return;
+        }
+
+        const fromInput = picker.querySelector('[data-date-range-from]');
+        const toInput = picker.querySelector('[data-date-range-to]');
+        const trigger = picker.querySelector('[data-date-range-trigger]');
+        const clearButton = picker.querySelector('[data-date-range-clear]');
+        const dateRangeControl = picker.querySelector('.archive-date-range-control');
+        const label = picker.querySelector('[data-date-range-label]');
+        const popover = picker.querySelector('[data-date-range-popover]');
+        const preview = picker.querySelector('[data-date-range-preview]');
+        const applyButton = picker.querySelector('[data-date-range-apply]');
+        const cancelButton = picker.querySelector('[data-date-range-cancel]');
+        const months = Array.from(picker.querySelectorAll('[data-calendar-month]'));
+        if (!fromInput || !toInput || !trigger || !clearButton || !dateRangeControl || !label || !popover || months.length !== 2) {
+            return;
+        }
+
+        const parseDate = (value) => {
+            const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || '');
+            if (!match) {
+                return null;
+            }
+            const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+            return date.getUTCFullYear() === Number(match[1])
+                && date.getUTCMonth() === Number(match[2]) - 1
+                && date.getUTCDate() === Number(match[3]) ? date : null;
+        };
+        const dateKey = (date) => date ? date.toISOString().slice(0, 10) : '';
+        const monthStart = (date, offset = 0) => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + offset, 1));
+        const formatMonth = (date) => new Intl.DateTimeFormat('en-US', {
+            month: 'long', year: 'numeric', timeZone: 'UTC',
+        }).format(date);
+        const formatDate = (date) => new Intl.DateTimeFormat('en-US', {
+            month: '2-digit', day: '2-digit', year: 'numeric', timeZone: 'UTC',
+        }).format(date);
+        const formatAccessibleDate = (date) => new Intl.DateTimeFormat('en-US', {
+            weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC',
+        }).format(date);
+        const formatRangeLabel = (start, end) => {
+            if (start && end) {
+                return `${formatDate(start)} → ${formatDate(end)}`;
+            }
+            if (start) {
+                return `${formatDate(start)} → Select end`;
+            }
+            if (end) {
+                return `Select start → ${formatDate(end)}`;
+            }
+            return 'Select Start and End Date';
+        };
+
+        let appliedStart = parseDate(fromInput.value);
+        let appliedEnd = parseDate(toInput.value);
+        let selectedStart = appliedStart;
+        let selectedEnd = appliedEnd;
+        let visibleMonth = monthStart(appliedStart || appliedEnd || new Date());
+
+        const restoreAppliedRange = () => {
+            appliedStart = parseDate(fromInput.value);
+            appliedEnd = parseDate(toInput.value);
+            selectedStart = appliedStart;
+            selectedEnd = appliedEnd;
+            visibleMonth = monthStart(appliedStart || appliedEnd || new Date());
+            label.textContent = formatRangeLabel(appliedStart, appliedEnd);
+            clearButton.hidden = !appliedStart && !appliedEnd;
+            dateRangeControl.classList.toggle('has-clear', Boolean(appliedStart || appliedEnd));
+            render();
+        };
+
+        const updatePreview = () => {
+            if (!selectedStart) {
+                preview.textContent = 'Select start and end dates';
+                applyButton.disabled = true;
+                return;
+            }
+            preview.textContent = selectedEnd
+                ? `${formatDate(selectedStart)} → ${formatDate(selectedEnd)}`
+                : `${formatDate(selectedStart)} → Choose end date`;
+            applyButton.disabled = !selectedEnd;
+        };
+
+        const updateSelection = () => {
+            const startKey = dateKey(selectedStart);
+            const endKey = dateKey(selectedEnd);
+            picker.querySelectorAll('[data-date]').forEach((button) => {
+                const key = button.dataset.date;
+                button.classList.toggle('is-in-range', Boolean(startKey && endKey && key > startKey && key < endKey));
+                button.classList.toggle('is-range-start', key === startKey);
+                button.classList.toggle('is-range-end', Boolean(endKey && key === endKey && endKey !== startKey));
+                button.setAttribute('aria-pressed', String(key === startKey || key === endKey));
+            });
+            updatePreview();
+        };
+
+        const renderMonth = (monthElement, monthOffset) => {
+            const date = monthStart(visibleMonth, monthOffset);
+            monthElement.querySelector('[data-calendar-title]').textContent = formatMonth(date);
+            const daysContainer = monthElement.querySelector('[data-calendar-days]');
+            const firstDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+            const mondayOffset = (firstDay.getUTCDay() + 6) % 7;
+            const firstCell = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1 - mondayOffset));
+            const startKey = dateKey(selectedStart);
+            const endKey = dateKey(selectedEnd);
+            const cells = [];
+
+            for (let index = 0; index < 42; index += 1) {
+                const day = new Date(firstCell);
+                day.setUTCDate(firstCell.getUTCDate() + index);
+                const key = dateKey(day);
+                const classes = ['archive-calendar-day'];
+                if (day.getUTCMonth() !== date.getUTCMonth()) {
+                    classes.push('is-outside-month');
+                }
+                if (startKey && endKey && key > startKey && key < endKey) {
+                    classes.push('is-in-range');
+                }
+                if (key === startKey) {
+                    classes.push('is-range-start');
+                }
+                if (key === endKey && endKey !== startKey) {
+                    classes.push('is-range-end');
+                }
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = classes.join(' ');
+                button.textContent = String(day.getUTCDate());
+                button.setAttribute('aria-label', formatAccessibleDate(day));
+                button.setAttribute('aria-pressed', String(key === startKey || key === endKey));
+                button.dataset.date = key;
+                cells.push(button);
+            }
+            daysContainer.replaceChildren(...cells);
+        };
+
+        const render = () => {
+            months.forEach((monthElement, index) => renderMonth(monthElement, index));
+            updateSelection();
+        };
+
+        const setOpen = (isOpen, focusFirstDay = false) => {
+            popover.hidden = !isOpen;
+            trigger.setAttribute('aria-expanded', String(isOpen));
+            if (isOpen) {
+                selectedStart = parseDate(fromInput.value);
+                selectedEnd = parseDate(toInput.value);
+                visibleMonth = monthStart(selectedStart || selectedEnd || new Date());
+                render();
+                if (focusFirstDay) {
+                    months[0].querySelector('[data-calendar-days] button')?.focus();
+                }
+            }
+        };
+
+        trigger.addEventListener('click', () => {
+            if (popover.hidden) {
+                setOpen(true, true);
+            } else {
+                restoreAppliedRange();
+                setOpen(false);
+            }
+        });
+        clearButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            fromInput.value = '';
+            toInput.value = '';
+            appliedStart = null;
+            appliedEnd = null;
+            selectedStart = null;
+            selectedEnd = null;
+            label.textContent = formatRangeLabel(null, null);
+            clearButton.hidden = true;
+            dateRangeControl.classList.remove('has-clear');
+            setOpen(false);
+            render();
+            form.requestSubmit();
+        });
+        popover.addEventListener('click', (event) => {
+            const dayButton = event.target.closest('[data-date]');
+            if (dayButton) {
+                event.preventDefault();
+                event.stopPropagation();
+                const picked = parseDate(dayButton.dataset.date);
+                if (!picked) {
+                    return;
+                }
+                if (!selectedStart || selectedEnd) {
+                    selectedStart = picked;
+                    selectedEnd = null;
+                } else if (dateKey(picked) < dateKey(selectedStart)) {
+                    selectedEnd = selectedStart;
+                    selectedStart = picked;
+                } else {
+                    selectedEnd = picked;
+                }
+                updateSelection();
+                return;
+            }
+
+            if (event.target.closest('[data-calendar-previous]')) {
+                visibleMonth = monthStart(visibleMonth, -1);
+                render();
+            } else if (event.target.closest('[data-calendar-next]')) {
+                visibleMonth = monthStart(visibleMonth, 1);
+                render();
+            } else if (event.target.closest('[data-date-range-cancel]')) {
+                restoreAppliedRange();
+                setOpen(false);
+                trigger.focus();
+            } else if (event.target.closest('[data-date-range-apply]') && selectedStart && selectedEnd) {
+                appliedStart = selectedStart;
+                appliedEnd = selectedEnd || selectedStart;
+                fromInput.value = dateKey(appliedStart);
+                toInput.value = dateKey(appliedEnd);
+                label.textContent = formatRangeLabel(appliedStart, appliedEnd);
+                clearButton.hidden = false;
+                dateRangeControl.classList.add('has-clear');
+                setOpen(false);
+                form.requestSubmit();
+            }
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!picker.contains(event.target) && !popover.hidden) {
+                restoreAppliedRange();
+                setOpen(false);
+            }
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !popover.hidden) {
+                restoreAppliedRange();
+                setOpen(false);
+                trigger.focus();
+            }
+        });
+        render();
+    }
+
+    function setupArchiveCustomFilters() {
+        const wrappers = Array.from(document.querySelectorAll('[data-archive-custom-select]'));
+        if (!wrappers.length) {
+            return;
+        }
+
+        const optionsFor = (wrapper) => Array.from(wrapper.querySelectorAll('[data-archive-select-option]'));
+        const closeMenu = (wrapper, returnFocus = false) => {
+            const trigger = wrapper.querySelector('[data-archive-select-trigger]');
+            const menu = wrapper.querySelector('[data-archive-select-menu]');
+            if (!trigger || !menu) {
+                return;
+            }
+            menu.hidden = true;
+            trigger.setAttribute('aria-expanded', 'false');
+            wrapper.classList.remove('is-open');
+            if (returnFocus) {
+                trigger.focus();
+            }
+        };
+        const openMenu = (wrapper, focusSelected = false) => {
+            wrappers.forEach((other) => {
+                if (other !== wrapper) {
+                    closeMenu(other);
+                }
+            });
+            const trigger = wrapper.querySelector('[data-archive-select-trigger]');
+            const menu = wrapper.querySelector('[data-archive-select-menu]');
+            if (!trigger || !menu) {
+                return;
+            }
+            menu.hidden = false;
+            trigger.setAttribute('aria-expanded', 'true');
+            wrapper.classList.add('is-open');
+            if (focusSelected) {
+                const selected = optionsFor(wrapper).find((option) => option.getAttribute('aria-selected') === 'true');
+                (selected || optionsFor(wrapper)[0])?.focus();
+            }
+        };
+
+        wrappers.forEach((wrapper) => {
+            const select = wrapper.querySelector('[data-archive-native-select]');
+            const trigger = wrapper.querySelector('[data-archive-select-trigger]');
+            const valueLabel = wrapper.querySelector('[data-archive-select-value]');
+            const menu = wrapper.querySelector('[data-archive-select-menu]');
+            const options = optionsFor(wrapper);
+            if (!select || !trigger || !valueLabel || !menu || !options.length) {
+                return;
+            }
+
+            const syncSelection = () => {
+                const selectedOption = options.find((option) => option.dataset.value === select.value) || options[0];
+                valueLabel.textContent = selectedOption.textContent.trim();
+                options.forEach((option) => {
+                    const isSelected = option === selectedOption;
+                    option.setAttribute('aria-selected', String(isSelected));
+                    option.classList.toggle('is-selected', isSelected);
+                });
+            };
+            select.addEventListener('archive:select-sync', syncSelection);
+
+            trigger.addEventListener('click', () => {
+                if (menu.hidden) {
+                    openMenu(wrapper);
+                } else {
+                    closeMenu(wrapper);
+                }
+            });
+            trigger.addEventListener('keydown', (event) => {
+                if (event.key === 'Tab' && !menu.hidden) {
+                    closeMenu(wrapper);
+                    return;
+                }
+                if (event.key === 'Escape' && !menu.hidden) {
+                    event.preventDefault();
+                    closeMenu(wrapper, true);
+                    return;
+                }
+                if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(event.key)) {
+                    event.preventDefault();
+                    openMenu(wrapper, true);
+                }
+            });
+            menu.addEventListener('click', (event) => {
+                const option = event.target.closest('[data-archive-select-option]');
+                if (!option || !menu.contains(option)) {
+                    return;
+                }
+                const changed = select.value !== option.dataset.value;
+                select.value = option.dataset.value;
+                syncSelection();
+                closeMenu(wrapper, true);
+                if (changed) {
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+            menu.addEventListener('keydown', (event) => {
+                const option = event.target.closest('[data-archive-select-option]');
+                if (!option) {
+                    return;
+                }
+                if (event.key === 'Tab') {
+                    closeMenu(wrapper);
+                    return;
+                }
+                const currentIndex = options.indexOf(option);
+                let nextIndex = currentIndex;
+                if (event.key === 'ArrowDown') {
+                    nextIndex = Math.min(options.length - 1, currentIndex + 1);
+                } else if (event.key === 'ArrowUp') {
+                    nextIndex = Math.max(0, currentIndex - 1);
+                } else if (event.key === 'Home') {
+                    nextIndex = 0;
+                } else if (event.key === 'End') {
+                    nextIndex = options.length - 1;
+                } else if (event.key === 'Escape') {
+                    event.preventDefault();
+                    closeMenu(wrapper, true);
+                    return;
+                } else if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    option.click();
+                    return;
+                } else {
+                    return;
+                }
+                event.preventDefault();
+                options[nextIndex]?.focus();
+            });
+
+            syncSelection();
+        });
+
+        document.addEventListener('click', (event) => {
+            wrappers.forEach((wrapper) => {
+                if (!wrapper.contains(event.target)) {
+                    closeMenu(wrapper);
+                }
+            });
+        });
+    }
+
     function setupArchiveFilters() {
         const form = document.querySelector('[data-archive-filter-form]');
         if (!form) {
@@ -482,6 +867,9 @@
 
         let searchTimer;
         const submitFilters = () => form.requestSubmit();
+
+        setupArchiveCustomFilters();
+        setupArchiveDateRange();
 
         form.querySelectorAll('[data-archive-filter-control]').forEach((control) => {
             control.addEventListener('change', submitFilters);
@@ -538,6 +926,7 @@
                 const pageSizeControl = document.querySelector('[data-archive-page-size]');
                 if (pageSizeControl) {
                     pageSizeControl.value = new URL(url, window.location.href).searchParams.get('per_page') || '10';
+                    pageSizeControl.dispatchEvent(new Event('archive:select-sync'));
                 }
                 if (nextDocument.title) {
                     document.title = nextDocument.title;
@@ -567,6 +956,22 @@
             }
 
             event.preventDefault();
+            loadPage(url.href);
+        });
+
+        document.addEventListener('submit', (event) => {
+            const form = event.target.closest('[data-archive-page-jump]');
+            if (!form) {
+                return;
+            }
+
+            event.preventDefault();
+            if (!form.reportValidity()) {
+                return;
+            }
+
+            const url = new URL(form.action, window.location.href);
+            new FormData(form).forEach((value, key) => url.searchParams.set(key, String(value)));
             loadPage(url.href);
         });
 
