@@ -4819,6 +4819,19 @@ input[type="color"] { padding: 4px; cursor: pointer; }
 .sidebar-toggle:hover,
 .sidebar-toggle:focus-visible { color: var(--sidebar-foreground); }
 
+/* Keep account details lightweight without the old filled card container. */
+.sidebar .account-card {
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+html.sidebar-is-collapsed .sidebar .account-card {
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
 /* Logout control uses the same icon language as the sidebar navigation. */
 .sidebar .sidebar-logout {
     display: flex;
