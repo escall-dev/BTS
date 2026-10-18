@@ -33,6 +33,27 @@ class ArchiveController extends Controller
         ]);
     }
 
+    public function suggestions(): void
+    {
+        $this->requireLogin();
+        $query = trim((string) ($_GET['q'] ?? ''));
+        if ($query === '') {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['suggestions' => []]);
+            return;
+        }
+
+        $input = $_GET;
+        unset($input['q'], $input['process_number']);
+        [$filters, $filterErrors] = $this->archiveFilters($input);
+        $suggestions = $filterErrors === []
+            ? (new Workflow())->archiveSuggestions($filters, $query)
+            : [];
+
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['suggestions' => $suggestions], JSON_INVALID_UTF8_SUBSTITUTE);
+    }
+
     public function certification(): void
     {
         $this->requireLogin();

@@ -969,10 +969,151 @@
         });
 
         const search = form.querySelector('[data-archive-process-search]');
-        if (search) {
+        const searchControl = form.querySelector('[data-archive-search-control]');
+        const suggestions = form.querySelector('[data-archive-search-suggestions]');
+        if (search && searchControl && suggestions) {
+            let suggestionController = null;
+            let activeSuggestion = -1;
+            let hideTimer;
+
+            const closeSuggestions = () => {
+                window.clearTimeout(hideTimer);
+                search.setAttribute('aria-expanded', 'false');
+                search.removeAttribute('aria-activedescendant');
+                suggestions.classList.remove('is-open');
+                hideTimer = window.setTimeout(() => {
+                    suggestions.hidden = true;
+                }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 580);
+                activeSuggestion = -1;
+            };
+
+            const openSuggestions = () => {
+                window.clearTimeout(hideTimer);
+                suggestions.hidden = false;
+                search.setAttribute('aria-expanded', 'true');
+                window.requestAnimationFrame(() => suggestions.classList.add('is-open'));
+            };
+
+            const setActiveSuggestion = (index) => {
+                const options = Array.from(suggestions.querySelectorAll('[role="option"]'));
+                if (!options.length) {
+                    activeSuggestion = -1;
+                    search.removeAttribute('aria-activedescendant');
+                    return;
+                }
+                activeSuggestion = (index + options.length) % options.length;
+                options.forEach((option, optionIndex) => {
+                    const active = optionIndex === activeSuggestion;
+                    option.classList.toggle('is-active', active);
+                    option.setAttribute('aria-selected', active ? 'true' : 'false');
+                });
+                search.setAttribute('aria-activedescendant', options[activeSuggestion].id);
+                options[activeSuggestion].scrollIntoView({ block: 'nearest' });
+            };
+
+            const selectSuggestion = (value) => {
+                window.clearTimeout(searchTimer);
+                search.value = value;
+                closeSuggestions();
+                submitFilters();
+            };
+
+            const renderSuggestions = (values, query) => {
+                suggestions.replaceChildren();
+                activeSuggestion = -1;
+                const normalizedQuery = query.toLocaleLowerCase();
+                values.slice(0, 4).forEach((value, index) => {
+                    const option = document.createElement('div');
+                    const match = document.createElement('strong');
+                    const remainder = document.createElement('span');
+                    const matchLength = query.length;
+                    option.id = `archive-search-suggestion-${index}`;
+                    option.setAttribute('role', 'option');
+                    option.setAttribute('aria-selected', 'false');
+                    option.dataset.suggestionValue = value;
+                    match.className = 'archive-suggestion-match';
+                    remainder.className = 'archive-suggestion-remainder';
+                    match.textContent = value.slice(0, matchLength);
+                    remainder.textContent = value.slice(matchLength);
+                    if (!value.toLocaleLowerCase().startsWith(normalizedQuery)) return;
+                    option.append(match, remainder);
+                    suggestions.append(option);
+                });
+
+                if (!suggestions.children.length) {
+                    closeSuggestions();
+                    return;
+                }
+                openSuggestions();
+            };
+
+            const fetchSuggestions = async () => {
+                const query = search.value.trim();
+                if (!query) {
+                    if (suggestionController) suggestionController.abort();
+                    suggestions.replaceChildren();
+                    closeSuggestions();
+                    return;
+                }
+
+                if (suggestionController) suggestionController.abort();
+                suggestionController = new AbortController();
+                const parameters = new URLSearchParams(new FormData(form));
+                parameters.delete('process_number');
+                parameters.delete('page');
+                parameters.set('q', query);
+                try {
+                    const response = await fetch(`/BTS/archive/suggestions?${parameters}`, {
+                        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        credentials: 'same-origin',
+                        signal: suggestionController.signal,
+                    });
+                    if (!response.ok) throw new Error('Suggestions could not be loaded.');
+                    const data = await response.json();
+                    if (search.value.trim() !== query) return;
+                    renderSuggestions(Array.isArray(data.suggestions) ? data.suggestions : [], query);
+                    window.clearTimeout(searchTimer);
+                    if (!suggestions.children.length) {
+                        searchTimer = window.setTimeout(submitFilters, 450);
+                    }
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        closeSuggestions();
+                        searchTimer = window.setTimeout(submitFilters, 450);
+                    }
+                }
+            };
+
             search.addEventListener('input', () => {
                 window.clearTimeout(searchTimer);
-                searchTimer = window.setTimeout(submitFilters, 450);
+                fetchSuggestions();
+            });
+
+            search.addEventListener('keydown', (event) => {
+                const options = suggestions.querySelectorAll('[role="option"]');
+                const isExpanded = search.getAttribute('aria-expanded') === 'true';
+                if (event.key === 'ArrowDown' && isExpanded && options.length) {
+                    event.preventDefault();
+                    setActiveSuggestion(activeSuggestion + 1);
+                } else if (event.key === 'ArrowUp' && isExpanded && options.length) {
+                    event.preventDefault();
+                    setActiveSuggestion(activeSuggestion < 0 ? options.length - 1 : activeSuggestion - 1);
+                } else if (event.key === 'Enter' && activeSuggestion >= 0 && options[activeSuggestion]) {
+                    event.preventDefault();
+                    selectSuggestion(options[activeSuggestion].dataset.suggestionValue || '');
+                } else if (event.key === 'Escape') {
+                    closeSuggestions();
+                }
+            });
+
+            suggestions.addEventListener('pointerdown', (event) => {
+                const option = event.target.closest('[role="option"]');
+                if (!option) return;
+                event.preventDefault();
+                selectSuggestion(option.dataset.suggestionValue || '');
+            });
+            document.addEventListener('pointerdown', (event) => {
+                if (!searchControl.contains(event.target)) closeSuggestions();
             });
         }
     }

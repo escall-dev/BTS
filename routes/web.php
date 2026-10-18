@@ -21,6 +21,7 @@ $router->add('POST', '/reports/process/{id}/finish', 'WorkflowController@finish'
 $router->add('GET', '/reports/process/{id}/complete', 'WorkflowController@complete');
 
 $router->add('GET', '/archive', 'ArchiveController@index');
+$router->add('GET', '/archive/suggestions', 'ArchiveController@suggestions');
 $router->add('GET', '/archive/certification', 'ArchiveController@certification');
 $router->add('POST', '/archive/certification/print', 'ArchiveController@printCertification');
 $router->add('POST', '/archive/{processId}/delete', 'ArchiveController@delete');

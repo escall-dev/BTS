@@ -187,10 +187,11 @@ ob_start();
             </div>
         </div>
         <div class="archive-search-control" data-archive-search-control>
-            <input id="archive-process-search" type="search" name="process_number" value="<?= $escape($filters['process_number']) ?>" placeholder="Process number" aria-label="Search by process number" autocomplete="off" data-archive-process-search>
-            <button class="archive-search-toggle" type="submit" aria-label="Search by process number" data-archive-search-toggle>
+            <input id="archive-process-search" type="search" name="process_number" value="<?= $escape($filters['process_number']) ?>" placeholder="Process number or project title" aria-label="Search by process number or project title" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="archive-search-suggestions" data-archive-process-search>
+            <button class="archive-search-toggle" type="submit" aria-label="Search by process number or project title" data-archive-search-toggle>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 5 5"></path></svg>
             </button>
+            <div class="archive-search-suggestions" id="archive-search-suggestions" role="listbox" aria-label="Search suggestions" hidden data-archive-search-suggestions></div>
         </div>
         <noscript><button type="submit">Apply filters</button></noscript>
     </form>

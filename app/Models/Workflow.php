@@ -1531,6 +1531,50 @@ class Workflow extends Model
         return $archives;
     }
 
+    public function archiveSuggestions(array $filters, string $query, int $limit = 4): array
+    {
+        $filters['process_number'] = '';
+        [$conditions, $parameters] = $this->archiveConditions($filters);
+        $where = implode("\n               AND ", $conditions);
+        $limit = max(1, min(4, $limit));
+        $sql = "SELECT candidate.value
+                FROM (
+                    SELECT p.process_code AS value
+                    FROM report_processes p
+                    LEFT JOIN archives a ON a.process_id = p.id
+                    WHERE {$where}
+                    UNION
+                    SELECT COALESCE(
+                        NULLIF((SELECT bac_data.field_value
+                                FROM report_steps bac_step
+                                INNER JOIN report_step_data bac_data ON bac_data.report_step_id = bac_step.id
+                                WHERE bac_step.process_id = p.id
+                                  AND bac_step.step_key = 'bac-reports'
+                                  AND bac_data.field_key = 'PROJECTITLE'
+                                LIMIT 1), ''),
+                        NULLIF((SELECT pr_data.field_value
+                                FROM report_steps pr_step
+                                INNER JOIN report_step_data pr_data ON pr_data.report_step_id = pr_step.id
+                                WHERE pr_step.process_id = p.id
+                                  AND pr_step.step_key = 'purchase-request'
+                                  AND pr_data.field_key = 'PRPURPOSE'
+                                LIMIT 1), ''),
+                        'Not entered yet'
+                    ) AS value
+                    FROM report_processes p
+                    LEFT JOIN archives a ON a.process_id = p.id
+                    WHERE {$where}
+                ) candidate
+                WHERE candidate.value <> ''
+                  AND LOWER(LEFT(candidate.value, CHAR_LENGTH(?))) = LOWER(?)
+                ORDER BY candidate.value
+                LIMIT {$limit}";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([...$parameters, ...$parameters, $query, $query]);
+
+        return array_values(array_map('strval', $stmt->fetchAll(\PDO::FETCH_COLUMN)));
+    }
+
     private function archiveConditions(array $filters): array
     {
         $conditions = [
@@ -1571,8 +1615,29 @@ class Workflow extends Model
 
         $processNumber = trim((string) ($filters['process_number'] ?? ''));
         if ($processNumber !== '') {
-            $conditions[] = 'LOWER(p.process_code) LIKE ?';
-            $parameters[] = '%' . strtolower($processNumber) . '%';
+            $conditions[] = "(
+                LOWER(p.process_code) LIKE ?
+                OR EXISTS (
+                    SELECT 1
+                    FROM report_steps title_step
+                    INNER JOIN report_step_data title_data ON title_data.report_step_id = title_step.id
+                    WHERE title_step.process_id = p.id
+                      AND title_step.step_key = 'bac-reports'
+                      AND title_data.field_key = 'PROJECTITLE'
+                      AND LOWER(title_data.field_value) LIKE ?
+                )
+                OR EXISTS (
+                    SELECT 1
+                    FROM report_steps purpose_step
+                    INNER JOIN report_step_data purpose_data ON purpose_data.report_step_id = purpose_step.id
+                    WHERE purpose_step.process_id = p.id
+                      AND purpose_step.step_key = 'purchase-request'
+                      AND purpose_data.field_key = 'PRPURPOSE'
+                      AND LOWER(purpose_data.field_value) LIKE ?
+                )
+            )";
+            $searchTerm = '%' . strtolower($processNumber) . '%';
+            array_push($parameters, $searchTerm, $searchTerm, $searchTerm);
         }
 
         return [$conditions, $parameters];

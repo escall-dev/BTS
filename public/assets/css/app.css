@@ -3076,9 +3076,58 @@ button.action-card:hover {
 }
 
 .archive-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+}
+
+.archive-actions > .button,
+.archive-actions > form,
+.archive-actions > form button {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+}
+
+.archive-actions .button,
+.archive-actions button {
+    min-height: 38px;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.1;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(27, 32, 33, 0.06);
+}
+
+.archive-actions .button.secondary,
+.archive-actions button.secondary {
+    border-color: var(--line);
+    background: var(--surface-soft);
+    color: var(--ink);
+}
+
+.archive-actions .button.secondary:hover,
+.archive-actions button.secondary:hover {
+    border-color: var(--line-strong);
+    background: #e9e5d3;
+    color: var(--ink);
+}
+
+.archive-actions .danger-button {
+    border-color: color-mix(in srgb, var(--danger-ink) 18%, var(--line));
+    background: var(--danger-bg) !important;
+    color: var(--danger-ink) !important;
+}
+
+.archive-actions .danger-button:hover {
+    border-color: color-mix(in srgb, var(--danger-ink) 35%, var(--line));
+    background: color-mix(in srgb, var(--danger-bg) 82%, var(--danger-ink)) !important;
 }
 
 .danger-button {
@@ -3294,6 +3343,10 @@ button.action-card:hover {
     min-width: 0;
 }
 
+.archive-search-control:focus-within {
+    z-index: 61;
+}
+
 .archive-search-toggle {
     position: absolute;
     top: 50%;
@@ -3332,6 +3385,70 @@ button.action-card:hover {
     width: 100%;
     min-width: 0;
     padding: 8px 42px 8px 11px;
+}
+
+.archive-search-suggestions[hidden] {
+    display: none !important;
+}
+
+.archive-search-suggestions {
+    position: absolute;
+    top: calc(100% + 7px);
+    right: 0;
+    left: 0;
+    z-index: 62;
+    display: grid;
+    gap: 3px;
+    max-height: min(260px, 45vh);
+    padding: 5px;
+    overflow: auto;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: var(--surface);
+    box-shadow: 0 14px 32px rgba(27, 32, 33, 0.16), 0 2px 7px rgba(27, 32, 33, 0.08);
+    opacity: 0;
+    transform: scale(.96) translateY(-6px);
+    transform-origin: top center;
+    transition: transform 580ms cubic-bezier(.2, .9, .25, 1), opacity 580ms cubic-bezier(.2, .9, .25, 1);
+}
+
+.archive-search-suggestions.is-open {
+    opacity: 1;
+    transform: none;
+}
+
+.archive-search-suggestions [role="option"] {
+    min-width: 0;
+    padding: 9px 11px;
+    overflow: hidden;
+    border-radius: 7px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.archive-search-suggestions [role="option"]:hover,
+.archive-search-suggestions [role="option"].is-active {
+    background: rgba(166, 168, 103, 0.16);
+}
+
+.archive-suggestion-match {
+    color: var(--ink);
+    font-weight: 750;
+}
+
+.archive-suggestion-remainder {
+    color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .archive-search-suggestions {
+        transition-duration: 0ms;
+    }
 }
 
 .archive-date-range {
@@ -3581,6 +3698,11 @@ button.action-card:hover {
 
 .archive-table-scroll {
     overflow-x: auto;
+}
+
+.archive-panel {
+    min-width: 0;
+    container: archive-panel / inline-size;
 }
 
 .archive-table {
@@ -3870,9 +3992,97 @@ button.action-card:hover {
     .archive-filter-form {
         grid-template-columns: 150px 175px minmax(230px, 1fr) 74px 230px;
     }
+}
 
+@container archive-panel (max-width: 1600px) {
     .archive-table-scroll {
         overflow: visible;
+    }
+
+    .archive-table {
+        width: 100%;
+        min-width: 0;
+        table-layout: fixed;
+    }
+
+    .archive-table th:nth-child(1) { width: 16%; }
+    .archive-table th:nth-child(2) { width: 14%; }
+    .archive-table th:nth-child(3) { width: 10%; }
+    .archive-table th:nth-child(4) { width: 14%; }
+    .archive-table th:nth-child(5) { width: 17%; }
+    .archive-table th:nth-child(6) { width: 9%; }
+    .archive-table th:nth-child(7) { width: 10%; }
+    .archive-table th:nth-child(8) { width: 10%; }
+
+    .archive-table th,
+    .archive-table td {
+        padding: 8px 6px;
+        font-size: 12px;
+    }
+
+    .archive-table thead th {
+        font-size: 11px;
+    }
+
+    .archive-table .archive-project-title {
+        min-width: 0;
+        max-width: none;
+        font-size: 12px;
+    }
+
+    .archive-table .archive-process-code-link {
+        padding: 3px 4px;
+        font-size: 10px;
+    }
+
+    .archive-table .archive-datetime {
+        font-size: 10px;
+    }
+
+    .archive-table .archive-step-list {
+        grid-template-columns: repeat(5, 20px);
+        gap: 3px;
+    }
+
+    .archive-table .archive-step-pill {
+        width: 20px;
+        height: 20px;
+        font-size: 9px;
+    }
+
+    .archive-table .archive-actions {
+        gap: 4px;
+    }
+
+    .archive-table .archive-actions .button,
+    .archive-table .archive-actions button {
+        min-width: 0;
+        min-height: 34px;
+        padding: 5px 6px;
+        font-size: 10px;
+    }
+}
+
+@container archive-panel (max-width: 1400px) {
+    .archive-actions {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .completed-review-notice {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .archive-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        padding: 14px;
+        border-radius: 12px;
+        background: var(--surface);
+        box-shadow: inset 0 0 0 1px var(--line);
     }
 
     .archive-table,
@@ -3894,24 +4104,8 @@ button.action-card:hover {
         border: 0;
     }
 
-    .archive-table tbody {
-        display: grid;
-        gap: 12px;
-    }
-
-    .archive-table tbody tr {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px 16px;
-        padding: 14px;
-        border-radius: 12px;
-        background: var(--surface);
-        box-shadow: inset 0 0 0 1px var(--line);
-    }
-
     .archive-table tbody td {
         display: grid;
-        align-content: start;
         gap: 5px;
         min-width: 0;
         padding: 0;
@@ -3926,22 +4120,6 @@ button.action-card:hover {
         font-weight: 700;
         letter-spacing: .03em;
         text-transform: uppercase;
-    }
-
-    .archive-table tbody td[data-label="Progress"],
-    .archive-table tbody td[data-label="Actions"] {
-        grid-column: 1 / -1;
-    }
-}
-
-@media (max-width: 640px) {
-    .completed-review-notice {
-        align-items: flex-start;
-        flex-direction: column;
-    }
-
-    .archive-table tbody tr {
-        grid-template-columns: 1fr;
     }
 
     .archive-table tbody td[data-label="Progress"],
