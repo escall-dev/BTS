@@ -11,7 +11,14 @@ class AuthController extends Controller
 {
     public function showLogin(): void
     {
-        $this->view('auth/login', $this->loginPageData());
+        $sessionExpired = !empty($_SESSION['_bts_session_expired']);
+        if ($sessionExpired) {
+            unset($_SESSION['_bts_session_expired']);
+        }
+
+        $this->view('auth/login', $this->loginPageData(
+            $sessionExpired ? 'Your session has expired due to inactivity. Please sign in again.' : ''
+        ));
     }
 
     public function loginLockoutStatus(): void
@@ -64,6 +71,7 @@ class AuthController extends Controller
                 'role' => $user['role'],
             ];
             $_SESSION['show_login_loading'] = true;
+            $_SESSION['_bts_last_activity'] = time();
 
             $this->redirect('/BTS/dashboard');
         }
@@ -86,6 +94,21 @@ class AuthController extends Controller
         return 'Too many failed attempts. Please wait '
             . intdiv($seconds, 60) . ':' . str_pad((string) ($seconds % 60), 2, '0', STR_PAD_LEFT)
             . ' before trying again.';
+    }
+
+    public function sessionHeartbeat(): void
+    {
+        header('Content-Type: application/json; charset=UTF-8');
+        header('Cache-Control: no-store, private');
+
+        if (empty($_SESSION['user'])) {
+            http_response_code(401);
+            echo json_encode(['active' => false]);
+            return;
+        }
+
+        $_SESSION['_bts_last_activity'] = time();
+        echo json_encode(['active' => true]);
     }
 
     public function logout(): void

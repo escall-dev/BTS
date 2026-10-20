@@ -22,6 +22,12 @@ if (file_exists($autoload)) {
     });
 }
 
+// Session security hardening.
+ini_set('session.gc_maxlifetime', '660');
+ini_set('session.cookie_httponly', '1');
+ini_set('session.cookie_samesite', 'Lax');
+ini_set('session.use_strict_mode', '1');
+
 session_start();
 
 use App\Core\Router;
@@ -43,6 +49,24 @@ if (stripos($uri, '/public') === 0) {
 
 if ($uri === '' || $uri === '/') {
     $uri = '/';
+}
+
+// Server-side inactivity timeout (10 minutes = 600 seconds).
+// This is a security backstop — the JS client-side timer handles UX.
+$_btsInactivityMax = 600;
+$_btsExemptRoutes = ['/', '/login', '/login/lockout-status', '/session/heartbeat', '/logout'];
+if (!empty($_SESSION['user']) && !in_array($uri, $_btsExemptRoutes, true)) {
+    $lastActivity = (int) ($_SESSION['_bts_last_activity'] ?? 0);
+    if ($lastActivity > 0 && (time() - $lastActivity) > $_btsInactivityMax) {
+        session_unset();
+        session_destroy();
+        session_start();
+        session_regenerate_id(true);
+        $_SESSION['_bts_session_expired'] = true;
+        header('Location: /BTS/');
+        exit;
+    }
+    $_SESSION['_bts_last_activity'] = time();
 }
 
 if (!empty($_SESSION['user'])) {

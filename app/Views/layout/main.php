@@ -55,7 +55,7 @@ $sidebarIcon = static function (string $icon): string {
     <link rel="stylesheet" href="/BTS/assets/css/app.css?v=<?= filemtime(__DIR__ . '/../../../public/assets/css/app.css') ?>">
     <?php if ($uiTheme !== []): ?><style>:root{--ebony:<?= htmlspecialchars($uiTheme['primary']) ?>;--primary:<?= htmlspecialchars($uiTheme['primary']) ?>;--primary-dark:<?= htmlspecialchars($uiTheme['primary_dark']) ?>;--sidebar:<?= htmlspecialchars($uiTheme['primary_dark']) ?>;--sidebar-foreground:<?= htmlspecialchars($uiTheme['sidebar_foreground']) ?>;--sidebar-muted:<?= htmlspecialchars($uiTheme['sidebar_muted']) ?>;--palm:<?= htmlspecialchars($uiTheme['accent']) ?>;--accent:<?= htmlspecialchars($uiTheme['accent']) ?>;--accent-foreground:<?= htmlspecialchars($uiTheme['accent_foreground']) ?>}</style><?php endif; ?>
 </head>
-<body class="<?= htmlspecialchars(implode(' ', $bodyClasses), ENT_QUOTES, 'UTF-8') ?>">
+<body class="<?= htmlspecialchars(implode(' ', $bodyClasses), ENT_QUOTES, 'UTF-8') ?>"<?php if (!empty($_SESSION['user'])): ?> data-session-timeout="600" data-session-warning="60" data-session-heartbeat-url="/BTS/session/heartbeat" data-session-logout-url="/BTS/logout"<?php endif; ?>>
     <div class="page-loading-skeleton" data-page-loading-skeleton aria-hidden="true"<?= $showLoginLoading ? '' : ' hidden' ?>>
         <div class="page-loading-skeleton__sidebar">
             <span class="page-loading-skeleton__brand"></span>
@@ -151,6 +151,22 @@ $sidebarIcon = static function (string $icon): string {
             </div>
         </div>
     </dialog>
+
+    <?php if (!empty($_SESSION['user'])): ?>
+    <dialog class="session-timeout-dialog" data-session-timeout-dialog aria-labelledby="session-timeout-title" aria-describedby="session-timeout-desc">
+        <div class="session-timeout-dialog__panel">
+            <div class="session-timeout-dialog__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2ZM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8Zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7Z"/></svg>
+            </div>
+            <h2 id="session-timeout-title">Session Expiring</h2>
+            <p id="session-timeout-desc" data-session-timeout-message>Your session will expire in <strong data-session-timeout-countdown>60</strong> seconds due to inactivity.</p>
+            <div class="session-timeout-dialog__actions">
+                <button type="button" data-session-timeout-continue>Continue Working</button>
+                <button type="button" class="secondary" data-session-timeout-logout>Logout Now</button>
+            </div>
+        </div>
+    </dialog>
+    <?php endif; ?>
 
     <?php if ($active === 'auth'): ?>
         <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>

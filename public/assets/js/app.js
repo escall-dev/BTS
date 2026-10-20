@@ -2304,5 +2304,117 @@
             updateClock();
             setInterval(updateClock, 1000);
         }
+
+        // ─── Session Inactivity Timeout ─────────────────────────────────
+        (function setupSessionTimeout() {
+            var body = document.body;
+            var timeoutSeconds = Number(body.dataset.sessionTimeout);
+            var warningSeconds = Number(body.dataset.sessionWarning);
+            var heartbeatUrl = body.dataset.sessionHeartbeatUrl;
+            var logoutUrl = body.dataset.sessionLogoutUrl;
+
+            if (!timeoutSeconds || !heartbeatUrl || !logoutUrl) return;
+
+            var dialog = document.querySelector('[data-session-timeout-dialog]');
+            var countdownEl = document.querySelector('[data-session-timeout-countdown]');
+            var continueBtn = document.querySelector('[data-session-timeout-continue]');
+            var logoutBtn = document.querySelector('[data-session-timeout-logout]');
+            if (!dialog) return;
+
+            var inactivityTimer = 0;
+            var countdownInterval = 0;
+            var remainingSeconds = warningSeconds;
+            var heartbeatThrottle = 0;
+            var HEARTBEAT_INTERVAL = 120000; // 2 min between heartbeats
+            var THROTTLE_MS = 5000; // Only reset timer every 5 seconds of activity
+            var lastActivity = Date.now();
+
+            var doLogout = function () {
+                window.location.href = logoutUrl;
+            };
+
+            var showWarning = function () {
+                remainingSeconds = warningSeconds;
+                if (countdownEl) countdownEl.textContent = String(remainingSeconds);
+                dialog.showModal();
+
+                countdownInterval = setInterval(function () {
+                    remainingSeconds--;
+                    if (countdownEl) countdownEl.textContent = String(Math.max(0, remainingSeconds));
+                    if (remainingSeconds <= 0) {
+                        clearInterval(countdownInterval);
+                        dialog.close();
+                        doLogout();
+                    }
+                }, 1000);
+            };
+
+            var sendHeartbeat = function () {
+                var now = Date.now();
+                if (now - heartbeatThrottle < HEARTBEAT_INTERVAL) return;
+                heartbeatThrottle = now;
+
+                fetch(heartbeatUrl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    cache: 'no-store',
+                    headers: { 'Accept': 'application/json' },
+                }).catch(function () {});
+            };
+
+            var resetTimer = function () {
+                clearTimeout(inactivityTimer);
+                clearInterval(countdownInterval);
+
+                if (dialog.open) {
+                    dialog.close();
+                }
+
+                sendHeartbeat();
+
+                // Warning appears at (timeout - warning) seconds of inactivity
+                var warningDelay = (timeoutSeconds - warningSeconds) * 1000;
+                inactivityTimer = setTimeout(function () {
+                    showWarning();
+                }, warningDelay);
+            };
+
+            // Activity events that reset the timer
+            var activityEvents = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+
+            var onActivity = function () {
+                var now = Date.now();
+                if (now - lastActivity < THROTTLE_MS) return;
+                lastActivity = now;
+                resetTimer();
+            };
+
+            activityEvents.forEach(function (event) {
+                document.addEventListener(event, onActivity, { passive: true });
+            });
+
+            // "Continue Working" button
+            if (continueBtn) {
+                continueBtn.addEventListener('click', function () {
+                    lastActivity = 0; // Force reset
+                    resetTimer();
+                });
+            }
+
+            // "Logout Now" button
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', doLogout);
+            }
+
+            // Prevent closing via Escape during countdown — treat as "Continue Working"
+            dialog.addEventListener('cancel', function (e) {
+                e.preventDefault();
+                lastActivity = 0;
+                resetTimer();
+            });
+
+            // Start the timer
+            resetTimer();
+        })();
     });
 })();
