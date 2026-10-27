@@ -53,7 +53,7 @@ class CompletedTransactionCertificationGenerator
         $BANK_NAME = '${BANK_NAME}';
         $BANK_ADDRESS = '${BANK_ADDRESS}';
 
-        self::mergeAndSet($sheet, 'A6:E8', "To: The Bank Manager\n${BANK_NAME}\n${BANK_ADDRESS}");
+        self::mergeAndSet($sheet, 'A6:E8', "To: The Bank Manager\n" . $BANK_NAME . "\n" . $BANK_ADDRESS);
         $sheet->getStyle('A6:E8')->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_TOP);
         self::mergeAndSet($sheet, 'A9:J9', 'Madam:');
 

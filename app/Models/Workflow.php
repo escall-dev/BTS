@@ -851,6 +851,7 @@ class Workflow extends Model
 
     private function usedCheckNumbers(?int $ignoreStepId = null): array
     {
+        $params = [];
         $sql = "SELECT d.field_value
                 FROM report_step_data d
                 INNER JOIN report_steps s ON s.id = d.report_step_id
@@ -862,7 +863,7 @@ class Workflow extends Model
         }
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute();
+        $stmt->execute($params);
 
         $used = [];
         foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $value) {
@@ -1599,7 +1600,7 @@ class Workflow extends Model
                 FROM report_processes p
                 LEFT JOIN archives a ON a.process_id = p.id"
             );
-            $row = $stmt ? ($stmt->fetch(\PDO::FETCH_ASSOC) ?: []) : [];
+            $row = $stmt ? ($stmt->fetch(PDO::FETCH_ASSOC) ?: []) : [];
             return [
                 'total' => (int) ($row['total_count'] ?? 0),
                 'purchase_request' => (int) ($row['purchase_request_count'] ?? 0),
@@ -1657,7 +1658,7 @@ class Workflow extends Model
         $stmt = $this->db->prepare($sql);
         $stmt->execute([...$parameters, ...$parameters, $query, $query]);
 
-        return array_values(array_map('strval', $stmt->fetchAll(\PDO::FETCH_COLUMN)));
+        return array_values(array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN)));
     }
 
     private function archiveConditions(array $filters): array
@@ -1891,7 +1892,7 @@ SQL . (count($conditions) > 2 ? " AND " . implode("\n  AND ", array_slice($condi
             ORDER BY candidate.value
             LIMIT {$limit}");
         $stmt->execute([...$parameters, ...$parameters, $query, $query]);
-        return array_values(array_map('strval', $stmt->fetchAll(\PDO::FETCH_COLUMN)));
+        return array_values(array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN)));
     }
 
     private function trashConditions(array $filters, bool $includeSearch = true): array
@@ -1993,7 +1994,7 @@ SQL . (count($conditions) > 2 ? " AND " . implode("\n  AND ", array_slice($condi
         $this->db->beginTransaction();
         try {
             $stmt = $this->db->query("SELECT id FROM report_processes WHERE status = 'deleted' AND deleted_at IS NOT NULL AND deleted_at <= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 30 DAY) FOR UPDATE");
-            $processIds = array_map('intval', $stmt->fetchAll(\PDO::FETCH_COLUMN));
+            $processIds = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
             foreach ($processIds as $processId) {
                 $this->deleteProcessRows($processId);
             }
